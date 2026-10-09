@@ -71,3 +71,7 @@ export function getErrorMessage(error: unknown, fallback = 'Bir hata olu≈ütu. L√
   }
   return fallback
 }
+
+export function getErrorStatus(error: unknown): number | undefined {
+  return axios.isAxiosError(error) ? error.response?.status : undefined
+}

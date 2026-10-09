@@ -16,3 +16,11 @@ export async function register(payload: RegisterPayload): Promise<void> {
 export async function logout(): Promise<void> {
   await api.post('/auth/logout')
 }
+
+export async function verifyEmail(payload: { token: string }): Promise<void> {
+  await api.post('/auth/verify-email', payload)
+}
+
+export async function resendVerification(payload: { email: string }): Promise<void> {
+  await api.post('/auth/resend-verification', payload)
+}

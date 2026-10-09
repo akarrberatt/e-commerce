@@ -3,13 +3,14 @@ import type { SubmitEvent } from 'react'
 
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
-import { getErrorMessage } from '@/lib/api'
+import { getErrorMessage, getErrorStatus } from '@/lib/api'
 
 import { useLogin } from '../hooks/useAuth'
+import { ResendVerification } from './ResendVerification'
 import { validateEmail, validateRequired } from '../validation'
 
 export function LoginForm({ defaultEmail }: { defaultEmail?: string | undefined }) {
-  const { mutate, isPending, error } = useLogin()
+  const { mutate, isPending, error, variables } = useLogin()
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
 
   function onSubmit(e: SubmitEvent<HTMLFormElement>) {
@@ -46,6 +47,7 @@ export function LoginForm({ defaultEmail }: { defaultEmail?: string | undefined 
           {getErrorMessage(error, 'Giriş başarısız. Bilgilerinizi kontrol edin.')}
         </p>
       )}
+      {getErrorStatus(error) === 403 && variables && <ResendVerification email={variables.email} />}
       <Button type="submit" disabled={isPending}>
         {isPending ? 'Giriş yapılıyor...' : 'Giriş Yap'}
       </Button>

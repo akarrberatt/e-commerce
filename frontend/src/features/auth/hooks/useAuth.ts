@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { useAuthStore } from '@/stores/authStore'
 
-import { login, logout, register } from '../api'
+import { login, logout, register, resendVerification, verifyEmail } from '../api'
 import type { LoginRouteState } from '../types'
 
 export function useLogin() {
@@ -44,3 +44,6 @@ export function useLogout() {
     },
   })
 }
+
+export const useVerifyEmail = () => useMutation({ mutationFn: verifyEmail })
+export const useResendVerification = () => useMutation({ mutationFn: resendVerification })
