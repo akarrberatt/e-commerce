@@ -6,11 +6,12 @@ import { RegisterForm } from '@/features/auth/components/RegisterForm'
 export default function RegisterPage() {
   return (
     <AuthLayout
-      title="Kayıt Ol"
+      title="Hesap oluşturun"
+      subtitle="Birkaç adımda üye olun, alışverişe hemen başlayın."
       footer={
         <>
           Zaten hesabınız var mı?{' '}
-          <Link to="/login" className="font-medium text-indigo-600 hover:underline">
+          <Link to="/login" className="font-semibold text-brand-700 hover:underline">
             Giriş Yap
           </Link>
         </>

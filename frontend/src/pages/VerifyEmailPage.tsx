@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
+import { Alert } from '@/components/ui/Alert'
 import { AuthLayout } from '@/components/layout/AuthLayout'
 import { useVerifyEmail } from '@/features/auth/hooks/useAuth'
 import { getErrorMessage } from '@/lib/api'
@@ -16,28 +17,26 @@ export default function VerifyEmailPage() {
 
   let content
   if (!token) {
-    content = <p role="alert" className="text-center text-sm text-red-600">Geçersiz doğrulama bağlantısı.</p>
+    content = <Alert variant="error">Geçersiz doğrulama bağlantısı.</Alert>
   } else if (isSuccess) {
     content = (
-      <p role="status" className="text-center text-sm text-green-700">
-        E-posta adresiniz doğrulandı. Artık giriş yapabilirsiniz.
-      </p>
+      <Alert variant="success">E-posta adresiniz doğrulandı. Artık giriş yapabilirsiniz.</Alert>
     )
   } else if (error) {
     content = (
-      <p role="alert" className="text-center text-sm text-red-600">
+      <Alert variant="error">
         {getErrorMessage(error, 'Doğrulama başarısız. Bağlantının süresi dolmuş olabilir.')}
-      </p>
+      </Alert>
     )
   } else {
-    content = <p className="text-center text-sm text-gray-500">Doğrulanıyor...</p>
+    content = <p className="text-sm text-gray-500">Doğrulanıyor...</p>
   }
 
   return (
     <AuthLayout
-      title="E-posta Doğrulama"
+      title="E-posta doğrulama"
       footer={
-        <Link to="/login" className="font-medium text-indigo-600 hover:underline">
+        <Link to="/login" className="font-semibold text-brand-700 hover:underline">
           Giriş sayfasına git
         </Link>
       }

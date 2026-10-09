@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Brand colours sampled from the logo (hue ~12deg). Use 700+ for text or under white text (AA contrast). */
+  --color-brand-50: #feefec;
+  --color-brand-100: #fce0d9;
+  --color-brand-200: #f7c6ba;
+  --color-brand-300: #efa795;
+  --color-brand-400: #e5846c;
+  --color-brand-500: #d96344;
+  --color-brand-600: #c9553a;
+  --color-brand-700: #b84828;
+  --color-brand-800: #913a22;
+  --color-brand-900: #6f2d1b;
+
+  /* Sale accent (discount badges). Dark text on it keeps contrast high. */
+  --color-sale: #ffb94a;
+
+  /* Logo wordmark colour, used for headings. */
+  --color-ink: #303844;
+}
+
+@layer base {
+  body {
+    @apply bg-white text-ink antialiased;
+  }
+}

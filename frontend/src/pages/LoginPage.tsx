@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 
+import { Alert } from '@/components/ui/Alert'
 import { AuthLayout } from '@/components/layout/AuthLayout'
 import { LoginForm } from '@/features/auth/components/LoginForm'
 import type { LoginRouteState } from '@/features/auth/types'
@@ -10,20 +11,21 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      title="Giriş Yap"
+      title="Tekrar hoş geldiniz"
+      subtitle="Hesabınıza giriş yaparak alışverişe devam edin."
       footer={
         <>
           Hesabınız yok mu?{' '}
-          <Link to="/register" className="font-medium text-indigo-600 hover:underline">
+          <Link to="/register" className="font-semibold text-brand-700 hover:underline">
             Kayıt Ol
           </Link>
         </>
       }
     >
       {registeredEmail && (
-        <p role="status" className="rounded-md bg-green-50 p-3 text-sm text-green-800">
+        <Alert variant="success">
           Kayıt başarılı. Lütfen e-postanıza gönderilen bağlantıyla hesabınızı doğrulayın, ardından giriş yapın.
-        </p>
+        </Alert>
       )}
       <LoginForm defaultEmail={registeredEmail} />
     </AuthLayout>

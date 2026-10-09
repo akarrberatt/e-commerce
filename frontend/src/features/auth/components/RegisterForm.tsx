@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { SubmitEvent } from 'react'
 
+import { Alert } from '@/components/ui/Alert'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
 import { getErrorMessage } from '@/lib/api'
@@ -52,9 +53,7 @@ export function RegisterForm() {
         error={errors.confirm}
       />
       {error && (
-        <p role="alert" className="text-sm text-red-600">
-          {getErrorMessage(error, 'Kayıt başarısız. Lütfen tekrar deneyin.')}
-        </p>
+        <Alert variant="error">{getErrorMessage(error, 'Kayıt başarısız. Lütfen tekrar deneyin.')}</Alert>
       )}
       <Button type="submit" disabled={isPending}>
         {isPending ? 'Kayıt yapılıyor...' : 'Kayıt Ol'}

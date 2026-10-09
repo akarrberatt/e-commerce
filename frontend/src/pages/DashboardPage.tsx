@@ -9,7 +9,7 @@ export default function DashboardPage() {
       <button
         onClick={() => logout()}
         disabled={isPending}
-        className="text-sm text-indigo-600 hover:underline disabled:opacity-60"
+        className="text-sm text-brand-700 hover:underline disabled:opacity-60"
       >
         Çıkış Yap
       </button>

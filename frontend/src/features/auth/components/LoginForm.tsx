@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { SubmitEvent } from 'react'
 
+import { Alert } from '@/components/ui/Alert'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
 import { getErrorMessage, getErrorStatus } from '@/lib/api'
@@ -43,9 +44,7 @@ export function LoginForm({ defaultEmail }: { defaultEmail?: string | undefined 
         error={errors.password}
       />
       {error && (
-        <p role="alert" className="text-sm text-red-600">
-          {getErrorMessage(error, 'Giriş başarısız. Bilgilerinizi kontrol edin.')}
-        </p>
+        <Alert variant="error">{getErrorMessage(error, 'Giriş başarısız. Bilgilerinizi kontrol edin.')}</Alert>
       )}
       {getErrorStatus(error) === 403 && variables && <ResendVerification email={variables.email} />}
       <Button type="submit" disabled={isPending}>

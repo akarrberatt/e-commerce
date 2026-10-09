@@ -1,3 +1,4 @@
+import { Alert } from '@/components/ui/Alert'
 import { getErrorMessage } from '@/lib/api'
 
 import { useResendVerification } from '../hooks/useAuth'
@@ -7,9 +8,9 @@ export function ResendVerification({ email }: { email: string }) {
 
   if (isSuccess) {
     return (
-      <p role="status" className="text-sm text-green-700">
+      <Alert variant="success">
         Doğrulama e-postası tekrar gönderildi. Lütfen gelen kutunuzu kontrol edin.
-      </p>
+      </Alert>
     )
   }
 
@@ -19,14 +20,12 @@ export function ResendVerification({ email }: { email: string }) {
         type="button"
         onClick={() => mutate({ email })}
         disabled={isPending}
-        className="text-sm font-medium text-indigo-600 hover:underline disabled:opacity-60"
+        className="text-sm font-semibold text-brand-700 hover:underline disabled:opacity-60"
       >
         {isPending ? 'Gönderiliyor...' : 'Doğrulama e-postasını tekrar gönder'}
       </button>
       {error && (
-        <p role="alert" className="text-sm text-red-600">
-          {getErrorMessage(error)}
-        </p>
+        <Alert variant="error">{getErrorMessage(error)}</Alert>
       )}
     </div>
   )
