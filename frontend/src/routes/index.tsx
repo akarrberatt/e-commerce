@@ -6,8 +6,10 @@ import DashboardPage from '@/pages/DashboardPage'
 import ForgotPasswordPage from '@/pages/ForgotPasswordPage'
 import LoginPage from '@/pages/LoginPage'
 import NotFoundPage from '@/pages/NotFoundPage'
+import PrivacyPage from '@/pages/PrivacyPage'
 import RegisterPage from '@/pages/RegisterPage'
 import ResetPasswordPage from '@/pages/ResetPasswordPage'
+import TermsPage from '@/pages/TermsPage'
 import VerifyEmailPage from '@/pages/VerifyEmailPage'
 
 import { GuestOnly, RequireAuth } from './guards'
@@ -33,6 +35,8 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  { path: '/terms', element: <TermsPage /> },
+  { path: '/privacy', element: <PrivacyPage /> },
   {
     element: <RequireAuth />,
     children: [{ path: '/dashboard', element: <DashboardPage /> }],
