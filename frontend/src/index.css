@@ -11,6 +11,7 @@
   --color-brand-400: #e5846c;
   --color-brand-500: #d96344;
   --color-brand-600: #c9553a;
+  --color-brand-650: #c35135; /* button hover: lighter than 700, still AA with white text */
   --color-brand-700: #b84828;
   --color-brand-800: #913a22;
   --color-brand-900: #6f2d1b;
@@ -18,11 +19,53 @@
   /* Sale accent (discount badges). Dark text on it keeps contrast high. */
   --color-sale: #ffb94a;
 
+  --animate-shine: shine 0.8s ease-out;
+
+  @keyframes shine {
+    from {
+      translate: -100% 0;
+    }
+    to {
+      translate: 500% 0;
+    }
+  }
+
+  --animate-slide-out: slide-out 0.28s ease-in forwards;
+  --animate-slide-in: slide-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+
+  @keyframes slide-out {
+    from {
+      translate: 0 0;
+      opacity: 1;
+    }
+    to {
+      translate: 160% 0;
+      opacity: 0;
+    }
+  }
+
+  @keyframes slide-in {
+    from {
+      translate: 160% 0;
+      opacity: 0;
+    }
+    to {
+      translate: 0 0;
+      opacity: 1;
+    }
+  }
+
   /* Logo wordmark colour, used for headings. */
   --color-ink: #303844;
 }
 
 @layer base {
+  /* Tailwind v4 no longer gives buttons a pointer cursor. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
   body {
     @apply bg-white text-ink antialiased;
   }

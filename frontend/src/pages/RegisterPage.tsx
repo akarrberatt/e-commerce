@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
 
-import { AuthLayout } from '@/components/layout/AuthLayout'
+import { AuthCard } from '@/components/layout/AuthCard'
 import { RegisterForm } from '@/features/auth/components/RegisterForm'
 
 export default function RegisterPage() {
   return (
-    <AuthLayout
+    <AuthCard
       title="Hesap oluşturun"
       subtitle="Birkaç adımda üye olun, alışverişe hemen başlayın."
       footer={
@@ -18,6 +18,6 @@ export default function RegisterPage() {
       }
     >
       <RegisterForm />
-    </AuthLayout>
+    </AuthCard>
   )
 }

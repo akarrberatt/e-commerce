@@ -3,10 +3,12 @@ import type { SubmitEvent } from 'react'
 
 import { Alert } from '@/components/ui/Alert'
 import { Button } from '@/components/ui/Button'
+import { LockIcon, MailIcon, UserIcon } from '@/components/ui/icons'
 import { TextField } from '@/components/ui/TextField'
 import { getErrorMessage } from '@/lib/api'
 
 import { useRegister } from '../hooks/useAuth'
+import { SocialAuth } from './SocialAuth'
 import { validateEmail, validatePassword, validateRequired } from '../validation'
 
 type Errors = Partial<Record<'name' | 'email' | 'password' | 'confirm', string>>
@@ -35,14 +37,31 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-4">
-      <TextField label="Ad Soyad" name="name" autoComplete="name" error={errors.name} />
-      <TextField label="E-posta" name="email" type="email" autoComplete="email" error={errors.email} />
+    <form onSubmit={onSubmit} noValidate className="space-y-5">
+      <TextField
+        label="Ad Soyad"
+        name="name"
+        autoComplete="name"
+        placeholder="Adınız Soyadınız"
+        icon={<UserIcon />}
+        error={errors.name}
+      />
+      <TextField
+        label="E-posta"
+        name="email"
+        type="email"
+        autoComplete="email"
+        placeholder="ornek@eposta.com"
+        icon={<MailIcon />}
+        error={errors.email}
+      />
       <TextField
         label="Şifre"
         name="password"
         type="password"
         autoComplete="new-password"
+        placeholder="En az 8 karakter"
+        icon={<LockIcon />}
         error={errors.password}
       />
       <TextField
@@ -50,14 +69,17 @@ export function RegisterForm() {
         name="confirm"
         type="password"
         autoComplete="new-password"
+        placeholder="Şifrenizi tekrar girin"
+        icon={<LockIcon />}
         error={errors.confirm}
       />
       {error && (
         <Alert variant="error">{getErrorMessage(error, 'Kayıt başarısız. Lütfen tekrar deneyin.')}</Alert>
       )}
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" loading={isPending}>
         {isPending ? 'Kayıt yapılıyor...' : 'Kayıt Ol'}
       </Button>
+      <SocialAuth label="Google ile kayıt ol" />
     </form>
   )
 }

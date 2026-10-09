@@ -20,7 +20,9 @@ export interface RegisterPayload {
   password: string
 }
 
-/** Router state passed from the register page to the login page. */
+/** Router state passed to the login page (after register or password reset). */
 export interface LoginRouteState {
   registeredEmail?: string
+  /** Set after a successful password reset. */
+  passwordReset?: boolean
 }

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { Alert } from '@/components/ui/Alert'
-import { AuthLayout } from '@/components/layout/AuthLayout'
+import { AuthCard } from '@/components/layout/AuthCard'
 import { useVerifyEmail } from '@/features/auth/hooks/useAuth'
 import { getErrorMessage } from '@/lib/api'
 
@@ -33,7 +33,7 @@ export default function VerifyEmailPage() {
   }
 
   return (
-    <AuthLayout
+    <AuthCard
       title="E-posta doğrulama"
       footer={
         <Link to="/login" className="font-semibold text-brand-700 hover:underline">
@@ -42,6 +42,6 @@ export default function VerifyEmailPage() {
       }
     >
       {content}
-    </AuthLayout>
+    </AuthCard>
   )
 }

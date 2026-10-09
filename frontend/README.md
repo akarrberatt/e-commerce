@@ -54,7 +54,10 @@ Import from `src` with the `@/` alias, e.g. `import { api } from '@/lib/api'`.
 - Register does not log the user in; the session starts at the first successful login, after email verification.
 
 Expected endpoints: `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`,
-`/auth/verify-email`, `/auth/resend-verification`. Errors are `{ "message": string }`.
+`/auth/verify-email`, `/auth/resend-verification`, `/auth/forgot-password` (`{ email }`) and
+`/auth/reset-password` (`{ token, password }`). Errors are `{ "message": string }`.
+Google sign-in: the button links to `GET /auth/google`; the backend runs the OAuth flow, sets the refresh cookie and redirects to `/auth/callback`.
+Email links open frontend pages: `/verify-email?token=...` and `/reset-password?token=...`.
 
 ## Branding
 

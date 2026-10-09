@@ -2,18 +2,18 @@ import { Navigate, Outlet } from 'react-router-dom'
 
 import { useAuthStore } from '@/stores/authStore'
 
-function SessionLoading() {
+function SessionLoading({ fullScreen = false }: { fullScreen?: boolean }) {
   return (
-    <main className="flex min-h-screen items-center justify-center text-sm text-gray-500">
+    <div className={`flex items-center justify-center text-sm text-gray-500 ${fullScreen ? 'min-h-screen' : 'py-24'}`}>
       Yükleniyor...
-    </main>
+    </div>
   )
 }
 
 /** Only authenticated users may pass. */
 export function RequireAuth() {
   const status = useAuthStore((s) => s.status)
-  if (status === 'loading') return <SessionLoading />
+  if (status === 'loading') return <SessionLoading fullScreen />
   return status === 'authenticated' ? <Outlet /> : <Navigate to="/login" replace />
 }
 
