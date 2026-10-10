@@ -63,7 +63,7 @@ E-posta bağlantıları frontend'e gider:
 - Doğrulama: `FRONTEND_URL/verify-email?token=...` (24 saat) → frontend `POST /api/auth/verify-email`
 - Şifre sıfırlama: `FRONTEND_URL/reset-password?token=...` (60 dk, tek kullanımlık) → frontend `POST /api/auth/reset-password`
 
-`403` yalnızca login'de e-posta doğrulanmamışsa döner.
+`403` iki durumda döner: login'de e-posta doğrulanmamışsa (`EMAIL_NOT_VERIFIED`) ve rol gerektiren uçlarda yetkisiz kullanıcıya (`FORBIDDEN`). Frontend `code` alanına bakarak ayırt eder.
 
 ## Google ile giriş
 
@@ -84,6 +84,7 @@ Hesap eşleştirme kuralları:
 - Access token: JWT, 15 dk. Refresh token: opaque, 7 gün, `HttpOnly` + `SameSite=Lax` cookie, `Path=/api/auth`.
 - **Refresh rotation:** her refresh'te eski token iptal edilir. Eski token `REFRESH_GRACE_SECONDS` (30 sn) içinde tekrar gelirse (iki sekme aynı anda yeniledi) kullanıcı çıkarılmaz, yeni token verilir. Bu süreden sonra gelirse çalınma şüphesiyle kullanıcının tüm oturumları kapatılır.
 - Şifre sıfırlanınca kullanıcının tüm oturumları kapatılır.
+- Oturumlar toplu kapatıldığında (şifre sıfırlama/değiştirme, reuse) tolerans süresi içindeki rotate edilmiş token'lar da geçersiz olur.
 - Şifre değiştirilince (`change-password`) isteği yapan cihaz hariç tüm oturumlar kapatılır; istekte refresh çerezi yoksa hepsi kapatılır. Yanlış mevcut şifre `401` değil `400` döner (frontend 401'de oturumu kapatır).
 - Şifresi olmayan (Google ile açılmış) hesap `change-password` ile şifre belirleyemez (`400 PASSWORD_NOT_SET`); çalınmış bir access token kalıcı erişime dönüşmesin diye şifre yalnızca "şifremi unuttum" e-postasıyla belirlenir.
 - Kayıtta `acceptedTerms: true` zorunludur; onay zamanı ve metin sürümü (`TERMS_VERSION`) `users` tablosunda saklanır.

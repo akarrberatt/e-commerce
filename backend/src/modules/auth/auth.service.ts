@@ -63,10 +63,25 @@ export async function issueTokens(user: UserRow, db: DbClient = pool): Promise<A
   };
 }
 
-async function revokeAllSessions(userId: string, reason: RevokeReason, db: DbClient) {
+/**
+ * Kullanıcının oturumlarını kapatır. `exceptToken` verilirse o refresh token'a dokunulmaz
+ * (şifre değiştiren cihaz açık kalsın diye).
+ */
+async function revokeAllSessions(userId: string, reason: RevokeReason, db: DbClient, exceptToken?: string) {
+  // Token yoksa boş hash hiçbir satırla eşleşmez ve tüm oturumlar kapanır.
+  const exceptHash = exceptToken ? hashToken(exceptToken) : "";
   await db.query(
-    "UPDATE refresh_tokens SET revoked_at = now(), revoke_reason = $2 WHERE user_id = $1 AND revoked_at IS NULL",
-    [userId, reason],
+    `UPDATE refresh_tokens SET revoked_at = now(), revoke_reason = $2
+      WHERE user_id = $1 AND revoked_at IS NULL AND token_hash <> $3`,
+    [userId, reason, exceptHash],
+  );
+  // Az önce rotate edilmiş token'lar tolerans süresi boyunca hâlâ yeni oturum alabilir;
+  // nedenlerini değiştirerek refresh'teki tolerans kuralının dışına çıkar.
+  await db.query(
+    `UPDATE refresh_tokens SET revoke_reason = $2
+      WHERE user_id = $1 AND revoke_reason = 'rotated' AND token_hash <> $3
+        AND revoked_at > now() - make_interval(secs => $4)`,
+    [userId, reason, exceptHash, env.REFRESH_GRACE_SECONDS],
   );
 }
 
@@ -230,12 +245,8 @@ export async function changePassword(
     if (!rowCount) throw new HttpError(400, "Mevcut şifreniz hatalı.", "INVALID_CURRENT_PASSWORD");
 
     // Diğer cihazlardaki oturumları kapat; bu isteğin çerezindeki oturum açık kalır.
-    // Çerez yoksa hash hiçbir satırla eşleşmez ve tüm oturumlar kapanır.
-    await db.query(
-      `UPDATE refresh_tokens SET revoked_at = now(), revoke_reason = 'password_change'
-        WHERE user_id = $1 AND revoked_at IS NULL AND token_hash <> $2`,
-      [user.id, currentRefreshToken ? hashToken(currentRefreshToken) : ""],
-    );
+    // Çerez yoksa tüm oturumlar kapanır.
+    await revokeAllSessions(user.id, "password_change", db, currentRefreshToken);
   });
 }
 
