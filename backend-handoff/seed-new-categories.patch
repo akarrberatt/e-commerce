@@ -1,0 +1,132 @@
+diff --git a/backend/src/db/seed.ts b/backend/src/db/seed.ts
+index ce9258d..d23dda1 100644
+--- a/backend/src/db/seed.ts
++++ b/backend/src/db/seed.ts
+@@ -60,6 +60,38 @@ const categories: SeedCategory[] = [
+       { name: "Outdoor", slug: "outdoor" },
+     ],
+   },
++  {
++    name: "Kozmetik & Bakım",
++    slug: "kozmetik-bakim",
++    children: [
++      { name: "Cilt Bakımı", slug: "cilt-bakimi" },
++      { name: "Makyaj", slug: "makyaj" },
++    ],
++  },
++  {
++    name: "Kitap & Hobi",
++    slug: "kitap-hobi",
++    children: [
++      { name: "Kitap", slug: "kitap" },
++      { name: "Kırtasiye", slug: "kirtasiye" },
++    ],
++  },
++  {
++    name: "Anne & Bebek",
++    slug: "anne-bebek",
++    children: [
++      { name: "Bebek Bakım", slug: "bebek-bakim" },
++      { name: "Oyuncak", slug: "oyuncak" },
++    ],
++  },
++  {
++    name: "Otomotiv",
++    slug: "otomotiv",
++    children: [
++      { name: "Araç Aksesuarı", slug: "arac-aksesuari" },
++      { name: "Araç Bakım", slug: "arac-bakim" },
++    ],
++  },
+ ];
+ 
+ // Markalar uydurmadır. Listedeki sıra "en yeni" sıralamasını belirler (ilk ürün en yeni).
+@@ -252,6 +284,88 @@ const products: SeedProduct[] = [
+     description: "Çift cidarlı vakum yalıtım: içecekleri 24 saat sıcak, 36 saat soğuk tutar.",
+   },
+ 
++  // Yeni kategoriler
++  {
++    category: "cilt-bakimi", name: "Lumera Nemlendirici Yüz Kremi 50 ml", brand: "Lumera",
++    price: 249.9, oldPrice: 329.9, stock: 120, rating: 4.5, ratingCount: 640, images: 2,
++    description: "Hyaluronik asit içeren, hafif dokulu ve günlük kullanıma uygun nemlendirici yüz kremi.",
++  },
++  {
++    category: "cilt-bakimi", name: "Lumera Temizleme Jeli 200 ml", brand: "Lumera",
++    price: 179.9, stock: 90, rating: 4.3, ratingCount: 312, images: 1,
++    description: "Cildi kurutmadan makyaj ve kiri arındıran, tüm cilt tipleri için nazik temizleme jeli.",
++  },
++  {
++    category: "makyaj", name: "Renkar Mat Ruj Nude", brand: "Renkar",
++    price: 199.9, oldPrice: 259.9, stock: 75, rating: 4.4, ratingCount: 501, images: 2,
++    description: "Uzun süre kalıcı, kuruluk hissi bırakmayan mat bitişli ruj.",
++  },
++  {
++    category: "makyaj", name: "Renkar Hacim Veren Maskara", brand: "Renkar",
++    price: 229.9, stock: 64, rating: 4.2, ratingCount: 288, images: 1,
++    description: "Kirpiklere hacim ve uzunluk veren, topaklanmayan suya dayanıklı maskara.",
++  },
++  {
++    category: "kitap", name: "Sessiz Şehir - Roman", brand: "Yaprak Yayınları",
++    price: 129.9, oldPrice: 159.9, stock: 200, rating: 4.6, ratingCount: 1450, images: 1,
++    description: "Küçük bir kasabada geçen, aile sırlarını ve hesaplaşmaları anlatan akıcı bir roman.",
++  },
++  {
++    category: "kitap", name: "Adım Adım Yazılım Öğreniyorum", brand: "Yaprak Yayınları",
++    price: 219.9, stock: 85, rating: 4.5, ratingCount: 376, images: 1,
++    description: "Temel kavramlardan küçük projelere uzanan, yeni başlayanlar için uygulamalı bir yazılım rehberi.",
++  },
++  {
++    category: "kirtasiye", name: "Notal Çizgili Defter A5 3'lü Set", brand: "Notal",
++    price: 149.9, oldPrice: 189.9, stock: 300, rating: 4.4, ratingCount: 812, images: 2,
++    description: "Sert kapaklı, 96 yapraklı, dikişli ciltli A5 çizgili defter seti.",
++  },
++  {
++    category: "kirtasiye", name: "Notal Jel Kalem 12'li Renkli Set", brand: "Notal",
++    price: 119.9, stock: 220, rating: 4.3, ratingCount: 267, images: 1,
++    description: "Akıcı mürekkepli, 0,5 mm uçlu 12 renk jel kalem seti.",
++  },
++  {
++    category: "bebek-bakim", name: "Minik Adım Islak Mendil 12'li Paket", brand: "Minik Adım",
++    price: 199.9, oldPrice: 239.9, stock: 180, rating: 4.7, ratingCount: 2210, images: 1,
++    description: "Alkolsüz, parfümsüz ve cilt dostu bebek ıslak mendili, 12'li ekonomik paket.",
++  },
++  {
++    category: "bebek-bakim", name: "Minik Adım Bebek Şampuanı 400 ml", brand: "Minik Adım",
++    price: 89.9, stock: 140, rating: 4.5, ratingCount: 934, images: 1,
++    description: "Gözü yakmayan formülü ile yumuşak temizlik sağlayan bebek şampuanı.",
++  },
++  {
++    category: "oyuncak", name: "Oyunevi Ahşap Blok Seti 100 Parça", brand: "Oyunevi",
++    price: 449.9, oldPrice: 549.9, stock: 55, rating: 4.6, ratingCount: 418, images: 3,
++    description: "Hayal gücünü ve el becerisini destekleyen, boyalı 100 parça ahşap yapı blokları.",
++  },
++  {
++    category: "oyuncak", name: "Oyunevi Uzaktan Kumandalı Araba", brand: "Oyunevi",
++    price: 649.9, stock: 30, rating: 4.2, ratingCount: 156, images: 2,
++    description: "Şarj edilebilir bataryalı, 2,4 GHz kumandalı ve darbeye dayanıklı oyuncak araba.",
++  },
++  {
++    category: "arac-aksesuari", name: "Yolcu Araç İçi Telefon Tutucu", brand: "Yolcu",
++    price: 199.9, oldPrice: 249.9, stock: 160, rating: 4.3, ratingCount: 702, images: 2,
++    description: "Havalandırmaya takılan, 360 derece dönebilen ve tek elle kullanılabilen telefon tutucu.",
++  },
++  {
++    category: "arac-aksesuari", name: "Yolcu Oto Koltuk Kılıfı Seti", brand: "Yolcu",
++    price: 1299.9, stock: 22, rating: 4.1, ratingCount: 94, images: 2,
++    description: "Ön ve arka koltuklara uyumlu, kolay temizlenen deri görünümlü kılıf seti.",
++  },
++  {
++    category: "arac-bakim", name: "Parlak Oto Şampuanı 1 L", brand: "Parlak",
++    price: 169.9, oldPrice: 219.9, stock: 95, rating: 4.4, ratingCount: 388, images: 1,
++    description: "Boyaya zarar vermeden kir ve yağı çözen, köpüren konsantre oto şampuanı.",
++  },
++  {
++    category: "arac-bakim", name: "Parlak Mikrofiber Temizlik Bezi 6'lı", brand: "Parlak",
++    price: 129.9, stock: 260, rating: 4.5, ratingCount: 1190, images: 1,
++    description: "Çizmeyen, yüksek emiciliğe sahip 6'lı mikrofiber bez seti.",
++  },
++
+   // Pasif ürün: listede ve detayda görünmemeli.
+   {
+     category: "telefon", name: "Tekvia Eski Model Tablet 7 inç", brand: "Tekvia",
