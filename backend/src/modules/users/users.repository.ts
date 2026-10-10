@@ -4,10 +4,11 @@ import type { UserRole } from "../../lib/tokens.js";
 export interface UserRow {
   id: string;
   email: string;
-  password_hash: string;
+  password_hash: string | null; // Google ile açılan hesaplarda null olabilir
   name: string;
   role: UserRole;
   email_verified: boolean;
+  google_id: string | null;
   created_at: Date;
 }
 

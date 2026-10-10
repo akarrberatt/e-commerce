@@ -37,3 +37,16 @@ export async function sendVerificationEmail(to: string, token: string): Promise<
 <p>Link ${env.EMAIL_VERIFICATION_TTL_HOURS} saat geçerlidir. Bu işlemi sen yapmadıysan bu e-postayı yok sayabilirsin.</p>`,
   });
 }
+
+export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {
+  const link = `${env.FRONTEND_URL}/reset-password?token=${encodeURIComponent(token)}`;
+  const minutes = env.PASSWORD_RESET_TTL_MINUTES;
+  await sendMail({
+    to,
+    subject: "Şifre sıfırlama",
+    text: `Şifreni sıfırlamak için bu linke tıkla: ${link}\nLink ${minutes} dakika geçerlidir ve yalnızca bir kez kullanılabilir.`,
+    html: `<p>Şifreni sıfırlamak için aşağıdaki linke tıkla:</p>
+<p><a href="${link}">Şifremi sıfırla</a></p>
+<p>Link ${minutes} dakika geçerlidir ve yalnızca bir kez kullanılabilir. Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin; şifren değişmez.</p>`,
+  });
+}

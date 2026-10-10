@@ -12,6 +12,15 @@ const schema = z.object({
   ACCESS_TOKEN_TTL: z.string().default("15m"),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   EMAIL_VERIFICATION_TTL_HOURS: z.coerce.number().int().positive().default(24),
+  PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().positive().default(60),
+  // Rotate edilmiş refresh token'ın tekrar kabul edildiği süre (iki sekme aynı anda yenilerse)
+  REFRESH_GRACE_SECONDS: z.coerce.number().int().nonnegative().default(30),
+  // Kayıtta onaylanan Kullanım Şartları / Gizlilik Politikası metninin sürümü
+  TERMS_VERSION: z.string().min(1).default("1.0"),
+  // Google ile giriş (boşsa /auth/google hata sayfasına yönlendirir)
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z.string().url().default("http://localhost:8000/api/auth/google/callback"),
   COOKIE_SECURE: z
     .string()
     .optional()

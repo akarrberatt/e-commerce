@@ -12,7 +12,7 @@ const refreshCookieOptions: CookieOptions = {
   path: "/api/auth",
 };
 
-function setRefreshCookie(res: Response, token: string) {
+export function setRefreshCookie(res: Response, token: string) {
   res.cookie(REFRESH_COOKIE, token, {
     ...refreshCookieOptions,
     maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
@@ -49,6 +49,18 @@ export async function resendVerification(req: Request, res: Response) {
   res.json({
     message: "Bu e-posta ile doğrulanmamış bir hesap varsa, yeni doğrulama bağlantısı gönderildi.",
   });
+}
+
+export async function forgotPassword(req: Request, res: Response) {
+  await authService.forgotPassword(req.body.email);
+  res.json({
+    message: "Bu e-posta ile kayıtlı bir hesap varsa, şifre sıfırlama bağlantısı gönderildi.",
+  });
+}
+
+export async function resetPassword(req: Request, res: Response) {
+  await authService.resetPassword(req.body);
+  res.json({ message: "Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz." });
 }
 
 export async function login(req: Request, res: Response) {

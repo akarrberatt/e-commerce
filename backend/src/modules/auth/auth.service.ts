@@ -1,7 +1,7 @@
 import { env } from "../../config/env.js";
 import { pool, withTransaction, type DbClient } from "../../db/pool.js";
 import { HttpError } from "../../lib/httpError.js";
-import { sendVerificationEmail } from "../../lib/mailer.js";
+import { sendPasswordResetEmail, sendVerificationEmail } from "../../lib/mailer.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
 import { generateOpaqueToken, hashToken, signAccessToken } from "../../lib/tokens.js";
 import {
@@ -11,7 +11,7 @@ import {
   type PublicUser,
   type UserRow,
 } from "../users/users.repository.js";
-import type { LoginInput, RegisterInput } from "./auth.schemas.js";
+import type { LoginInput, RegisterInput, ResetPasswordInput } from "./auth.schemas.js";
 
 export interface AuthResult {
   accessToken: string;
@@ -19,25 +19,37 @@ export interface AuthResult {
   user: PublicUser;
 }
 
-const HOUR = 60 * 60 * 1000;
+type RevokeReason = "rotated" | "logout" | "reuse" | "password_reset";
+
+const MINUTE = 60 * 1000;
+const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 // ---------------------------------------------------------------------------
 // Yardımcılar
 // ---------------------------------------------------------------------------
 
-async function createVerificationToken(userId: string, db: DbClient): Promise<string> {
-  // Önceki kullanılmamış token'lar geçersiz olsun: her zaman sadece son gönderilen link çalışır.
-  await db.query("DELETE FROM email_verification_tokens WHERE user_id = $1 AND used_at IS NULL", [userId]);
+/** Tek kullanımlık token üretir; aynı kullanıcının önceki kullanılmamış token'larını siler. */
+async function createOneTimeToken(
+  table: "email_verification_tokens" | "password_reset_tokens",
+  userId: string,
+  ttlMs: number,
+  db: DbClient,
+): Promise<string> {
+  await db.query(`DELETE FROM ${table} WHERE user_id = $1 AND used_at IS NULL`, [userId]);
   const token = generateOpaqueToken();
-  await db.query(
-    "INSERT INTO email_verification_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
-    [userId, hashToken(token), new Date(Date.now() + env.EMAIL_VERIFICATION_TTL_HOURS * HOUR)],
-  );
+  await db.query(`INSERT INTO ${table} (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`, [
+    userId,
+    hashToken(token),
+    new Date(Date.now() + ttlMs),
+  ]);
   return token;
 }
 
-async function issueTokens(user: UserRow, db: DbClient): Promise<AuthResult> {
+const createVerificationToken = (userId: string, db: DbClient) =>
+  createOneTimeToken("email_verification_tokens", userId, env.EMAIL_VERIFICATION_TTL_HOURS * HOUR, db);
+
+export async function issueTokens(user: UserRow, db: DbClient = pool): Promise<AuthResult> {
   const refreshToken = generateOpaqueToken();
   await db.query("INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)", [
     user.id,
@@ -51,12 +63,19 @@ async function issueTokens(user: UserRow, db: DbClient): Promise<AuthResult> {
   };
 }
 
-async function sendVerificationSafely(email: string, token: string) {
+async function revokeAllSessions(userId: string, reason: RevokeReason, db: DbClient) {
+  await db.query(
+    "UPDATE refresh_tokens SET revoked_at = now(), revoke_reason = $2 WHERE user_id = $1 AND revoked_at IS NULL",
+    [userId, reason],
+  );
+}
+
+async function sendSafely(kind: string, send: () => Promise<void>) {
   try {
-    await sendVerificationEmail(email, token);
+    await send();
   } catch (err) {
-    // E-posta gönderilemese bile kullanıcı "tekrar gönder" ile yeni link isteyebilir.
-    console.error("Doğrulama e-postası gönderilemedi:", err);
+    // E-posta gönderilemese bile kullanıcı yeni bağlantı isteyebilir; isteği başarısız sayma.
+    console.error(`${kind} e-postası gönderilemedi:`, err);
   }
 }
 
@@ -67,21 +86,22 @@ async function sendVerificationSafely(email: string, token: string) {
 export async function register(input: RegisterInput): Promise<void> {
   const passwordHash = await hashPassword(input.password);
 
-  const result = await withTransaction(async (db) => {
+  const token = await withTransaction(async (db) => {
     const { rows } = await db.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3)
+      `INSERT INTO users (email, password_hash, name, terms_accepted_at, terms_version)
+       VALUES ($1, $2, $3, now(), $4)
        ON CONFLICT (email) DO NOTHING RETURNING id`,
-      [input.email, passwordHash, input.name],
+      [input.email, passwordHash, input.name, env.TERMS_VERSION],
     );
     const userId = rows[0]?.id;
     if (!userId) return null;
     return createVerificationToken(userId, db);
   });
 
-  if (!result) {
+  if (!token) {
     throw new HttpError(409, "Bu e-posta zaten kayıtlı.", "EMAIL_TAKEN");
   }
-  await sendVerificationSafely(input.email, result);
+  await sendSafely("Doğrulama", () => sendVerificationEmail(input.email, token));
 }
 
 export async function verifyEmail(token: string): Promise<{ alreadyVerified: boolean }> {
@@ -124,7 +144,50 @@ export async function resendVerification(email: string): Promise<void> {
   // Hesap yoksa veya zaten doğrulanmışsa sessizce çık: yanıt her durumda aynı.
   if (!user || user.email_verified) return;
   const token = await withTransaction((db) => createVerificationToken(user.id, db));
-  await sendVerificationSafely(user.email, token);
+  await sendSafely("Doğrulama", () => sendVerificationEmail(user.email, token));
+}
+
+// ---------------------------------------------------------------------------
+// Şifre sıfırlama
+// ---------------------------------------------------------------------------
+
+export async function forgotPassword(email: string): Promise<void> {
+  const user = await findUserByEmail(email);
+  // Hesap yoksa sessizce çık: yanıt her durumda aynı.
+  // Google ile açılmış (şifresiz) hesaplar da bu yolla şifre belirleyebilir.
+  if (!user) return;
+  const token = await withTransaction((db) =>
+    createOneTimeToken("password_reset_tokens", user.id, env.PASSWORD_RESET_TTL_MINUTES * MINUTE, db),
+  );
+  await sendSafely("Şifre sıfırlama", () => sendPasswordResetEmail(user.email, token));
+}
+
+export async function resetPassword(input: ResetPasswordInput): Promise<void> {
+  const passwordHash = await hashPassword(input.password);
+
+  await withTransaction(async (db) => {
+    const { rows } = await db.query<{ id: string; user_id: string; expires_at: Date; used_at: Date | null }>(
+      "SELECT id, user_id, expires_at, used_at FROM password_reset_tokens WHERE token_hash = $1 FOR UPDATE",
+      [hashToken(input.token)],
+    );
+    const row = rows[0];
+    if (!row || row.used_at || row.expires_at.getTime() < Date.now()) {
+      throw new HttpError(
+        400,
+        "Şifre sıfırlama bağlantısı geçersiz, süresi dolmuş veya daha önce kullanılmış. Lütfen yeni bir bağlantı isteyin.",
+        "INVALID_RESET_TOKEN",
+      );
+    }
+
+    await db.query("UPDATE password_reset_tokens SET used_at = now() WHERE id = $1", [row.id]);
+    // Bağlantıya e-postadan ulaştığı için e-posta sahipliği de kanıtlanmış olur.
+    await db.query(
+      "UPDATE users SET password_hash = $2, email_verified = TRUE, updated_at = now() WHERE id = $1",
+      [row.user_id, passwordHash],
+    );
+    // Şifre değişti: açık tüm oturumları kapat.
+    await revokeAllSessions(row.user_id, "password_reset", db);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -133,6 +196,7 @@ export async function resendVerification(email: string): Promise<void> {
 
 export async function login(input: LoginInput): Promise<AuthResult> {
   const user = await findUserByEmail(input.email);
+  // Google ile açılmış şifresiz hesaplarda password_hash null'dır; sonuç yine "hatalı" olur.
   const passwordOk = await verifyPassword(input.password, user?.password_hash);
 
   // Önce şifre: yanlışsa hesabın var olup olmadığı ya da doğrulanıp doğrulanmadığı belli olmasın.
@@ -146,47 +210,65 @@ export async function login(input: LoginInput): Promise<AuthResult> {
       "EMAIL_NOT_VERIFIED",
     );
   }
-  return issueTokens(user, pool);
+  return issueTokens(user);
 }
 
 const invalidSession = () => new HttpError(401, "Oturum geçersiz. Lütfen tekrar giriş yapın.", "INVALID_REFRESH_TOKEN");
 
 export async function refresh(rawToken: string | undefined): Promise<AuthResult> {
+  // Çerez yoksa veritabanına hiç gitmeden 401 (giriş yapmamış ziyaretçide her sayfa açılışında çağrılır).
   if (!rawToken) throw invalidSession();
 
   const outcome = await withTransaction(async (db) => {
-    const { rows } = await db.query<{ id: string; user_id: string; expires_at: Date; revoked_at: Date | null }>(
-      "SELECT id, user_id, expires_at, revoked_at FROM refresh_tokens WHERE token_hash = $1 FOR UPDATE",
+    const { rows } = await db.query<{
+      id: string;
+      user_id: string;
+      expires_at: Date;
+      revoked_at: Date | null;
+      revoke_reason: RevokeReason | null;
+    }>(
+      "SELECT id, user_id, expires_at, revoked_at, revoke_reason FROM refresh_tokens WHERE token_hash = $1 FOR UPDATE",
       [hashToken(rawToken)],
     );
     const stored = rows[0];
-    if (!stored) return { ok: false as const };
+    if (!stored || stored.expires_at.getTime() < Date.now()) return null;
 
     if (stored.revoked_at) {
-      // Daha önce kullanılmış (rotate edilmiş) bir token tekrar geldi: çalınmış olabilir.
-      // Güvenlik için bu kullanıcının tüm oturumlarını kapat.
-      await db.query("UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL", [
-        stored.user_id,
-      ]);
-      return { ok: false as const };
+      const withinGrace =
+        stored.revoke_reason === "rotated" &&
+        Date.now() - stored.revoked_at.getTime() < env.REFRESH_GRACE_SECONDS * 1000;
+
+      if (!withinGrace) {
+        if (stored.revoke_reason === "rotated") {
+          // Rotate edilmiş eski bir token tolerans süresinden sonra tekrar geldi: çalınmış olabilir.
+          // Güvenlik için bu kullanıcının tüm oturumlarını kapat.
+          await revokeAllSessions(stored.user_id, "reuse", db);
+        }
+        return null;
+      }
+      // Tolerans süresi içinde: iki sekme aynı anda yeniledi. Kullanıcıyı çıkarmadan yeni bir token ver.
     }
-    if (stored.expires_at.getTime() < Date.now()) return { ok: false as const };
 
     const user = await findUserById(stored.user_id, db);
-    if (!user || !user.email_verified) return { ok: false as const };
+    if (!user || !user.email_verified) return null;
 
-    // Rotation: eski token iptal, yenisi verilir.
-    await db.query("UPDATE refresh_tokens SET revoked_at = now() WHERE id = $1", [stored.id]);
-    return { ok: true as const, result: await issueTokens(user, db) };
+    if (!stored.revoked_at) {
+      // Rotation: eski token iptal, yenisi verilir.
+      await db.query("UPDATE refresh_tokens SET revoked_at = now(), revoke_reason = 'rotated' WHERE id = $1", [
+        stored.id,
+      ]);
+    }
+    return issueTokens(user, db);
   });
 
-  if (!outcome.ok) throw invalidSession();
-  return outcome.result;
+  if (!outcome) throw invalidSession();
+  return outcome;
 }
 
 export async function logout(rawToken: string | undefined): Promise<void> {
   if (!rawToken) return;
-  await pool.query("UPDATE refresh_tokens SET revoked_at = now() WHERE token_hash = $1 AND revoked_at IS NULL", [
-    hashToken(rawToken),
-  ]);
+  await pool.query(
+    "UPDATE refresh_tokens SET revoked_at = now(), revoke_reason = 'logout' WHERE token_hash = $1 AND revoked_at IS NULL",
+    [hashToken(rawToken)],
+  );
 }
