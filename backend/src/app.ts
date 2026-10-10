@@ -6,7 +6,9 @@ import { env } from "./config/env.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { categoriesRouter } from "./modules/categories/categories.routes.js";
+import { favoritesRouter } from "./modules/favorites/favorites.routes.js";
 import { productsRouter } from "./modules/products/products.routes.js";
+import { reviewsRouter } from "./modules/reviews/reviews.routes.js";
 import { usersRouter } from "./modules/users/users.routes.js";
 
 export const app = express();
@@ -37,6 +39,8 @@ api.use("/auth", authRouter);
 api.use("/users", usersRouter);
 api.use("/categories", categoriesRouter);
 api.use("/products", productsRouter);
+api.use("/favorites", favoritesRouter);
+api.use("/reviews", reviewsRouter);
 
 app.use("/api", api);
 

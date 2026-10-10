@@ -26,6 +26,9 @@ export interface ProductSummary {
   stock: number;
   inStock: boolean;
   rating: { average: number; count: number };
+  favoriteCount: number;
+  /** İsteği yapan kullanıcının favorisinde mi; token yoksa false. */
+  isFavorite: boolean;
   category: CategoryRef;
 }
 
@@ -40,7 +43,7 @@ export interface ProductList {
   pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
-function toSummary(row: ProductRow): ProductSummary {
+export function toSummary(row: ProductRow): ProductSummary {
   const old = row.compare_at_price_kurus;
   return {
     id: row.id,
@@ -55,11 +58,13 @@ function toSummary(row: ProductRow): ProductSummary {
     stock: row.stock,
     inStock: row.stock > 0,
     rating: { average: Number(row.rating_avg), count: row.rating_count },
+    favoriteCount: row.favorite_count,
+    isFavorite: row.is_favorite,
     category: { id: row.category_id, name: row.category_name, slug: row.category_slug },
   };
 }
 
-export async function listProducts(query: ListProductsQuery): Promise<ProductList> {
+export async function listProducts(query: ListProductsQuery, viewerId: string | null): Promise<ProductList> {
   const filters: ProductFilters = {
     q: query.q || undefined,
     minPriceKurus: query.minPrice === undefined ? undefined : tlToKurus(query.minPrice),
@@ -76,7 +81,7 @@ export async function listProducts(query: ListProductsQuery): Promise<ProductLis
 
   const { page, limit } = query;
   const [rows, total] = await Promise.all([
-    findProducts(filters, query.sort, limit, (page - 1) * limit),
+    findProducts(filters, query.sort, limit, (page - 1) * limit, viewerId),
     countProducts(filters),
   ]);
 
@@ -86,8 +91,8 @@ export async function listProducts(query: ListProductsQuery): Promise<ProductLis
   };
 }
 
-export async function getProduct(slug: string): Promise<ProductDetail> {
-  const row = await findActiveProductBySlug(slug);
+export async function getProduct(slug: string, viewerId: string | null): Promise<ProductDetail> {
+  const row = await findActiveProductBySlug(slug, viewerId);
   if (!row) throw new HttpError(404, "Ürün bulunamadı.", "NOT_FOUND");
 
   const images = await findProductImages(row.id);

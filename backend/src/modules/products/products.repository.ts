@@ -11,6 +11,8 @@ export interface ProductRow {
   stock: number;
   rating_avg: string; // NUMERIC, pg string olarak döndürür
   rating_count: number;
+  favorite_count: number;
+  is_favorite: boolean;
   category_id: string;
   category_name: string;
   category_slug: string;
@@ -36,14 +38,19 @@ export interface ProductFilters {
   inStock?: boolean;
 }
 
-const SUMMARY_COLUMNS = `
+// viewerParam: isteği yapan kullanıcının id'sini taşıyan parametre (ör. "$3"). Anonimse değeri NULL
+// gönderilir ve is_favorite her satırda false çıkar. Tek sorguda EXISTS ile çözülür (N+1 yok).
+export const summaryColumns = (viewerParam: string) => `
   p.id, p.slug, p.name, p.brand, p.price_kurus, p.compare_at_price_kurus, p.stock,
-  p.rating_avg, p.rating_count,
+  p.rating_avg, p.rating_count, p.favorite_count,
+  EXISTS (
+    SELECT 1 FROM favorites f WHERE f.product_id = p.id AND f.user_id = ${viewerParam}::uuid
+  ) AS is_favorite,
   c.id AS category_id, c.name AS category_name, c.slug AS category_slug,
   img.url AS image`;
 
 // Kategori ve ilk görsel tek sorguda gelir (N+1 yok).
-const SUMMARY_JOINS = `
+export const SUMMARY_JOINS = `
   JOIN categories c ON c.id = p.category_id
   LEFT JOIN LATERAL (
     SELECT url FROM product_images WHERE product_id = p.id ORDER BY sort_order, id LIMIT 1
@@ -58,6 +65,7 @@ const ORDER_BY: Record<ProductSort, string> = {
   // İndirim oranı yüksekten düşüğe; indirimsizler (NULL) sonda.
   discount: `(p.compare_at_price_kurus - p.price_kurus)::numeric / NULLIF(p.compare_at_price_kurus, 0) DESC NULLS LAST,
              p.id ASC`,
+  favorites: "p.favorite_count DESC, p.id ASC",
 };
 
 /** ILIKE kalıbındaki özel karakterleri (\ % _) düz metin olarak aratmak için kaçışlar. */
@@ -87,16 +95,17 @@ export async function findProducts(
   sort: ProductSort,
   limit: number,
   offset: number,
+  viewerId: string | null,
   db: DbClient = pool,
 ) {
   const { where, params } = buildWhere(filters);
   const { rows } = await db.query<ProductRow>(
-    `SELECT ${SUMMARY_COLUMNS}
+    `SELECT ${summaryColumns(`$${params.length + 3}`)}
        FROM products p ${SUMMARY_JOINS}
       WHERE ${where}
       ORDER BY ${ORDER_BY[sort]}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-    [...params, limit, offset],
+    [...params, limit, offset, viewerId],
   );
   return rows;
 }
@@ -110,16 +119,21 @@ export async function countProducts(filters: ProductFilters, db: DbClient = pool
   return rows[0]?.total ?? 0;
 }
 
-export async function findActiveProductBySlug(slug: string, db: DbClient = pool) {
+export async function findActiveProductBySlug(slug: string, viewerId: string | null, db: DbClient = pool) {
   const { rows } = await db.query<ProductDetailRow>(
-    `SELECT ${SUMMARY_COLUMNS}, p.description,
+    `SELECT ${summaryColumns("$2")}, p.description,
             pc.name AS parent_category_name, pc.slug AS parent_category_slug
        FROM products p ${SUMMARY_JOINS}
        LEFT JOIN categories pc ON pc.id = c.parent_id
       WHERE p.slug = $1 AND p.is_active`,
-    [slug],
+    [slug, viewerId],
   );
   return rows[0] ?? null;
+}
+
+export async function findActiveProductIdBySlug(slug: string, db: DbClient = pool) {
+  const { rows } = await db.query<{ id: string }>("SELECT id FROM products WHERE slug = $1 AND is_active", [slug]);
+  return rows[0]?.id ?? null;
 }
 
 export async function findProductImages(productId: string, db: DbClient = pool) {

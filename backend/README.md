@@ -1,6 +1,6 @@
 # E-Commerce Backend
 
-Express + TypeScript + PostgreSQL. Hazır modüller: auth (kayıt, e-posta doğrulama, giriş, şifre sıfırlama, Google ile giriş, refresh token rotation, çıkış), profil, kategoriler ve ürünler (listeleme, filtreleme, detay).
+Express + TypeScript + PostgreSQL. Hazır modüller: auth (kayıt, e-posta doğrulama, giriş, şifre sıfırlama, Google ile giriş, refresh token rotation, çıkış), profil, kategoriler, ürünler (listeleme, filtreleme, detay), favoriler ve ürün değerlendirmeleri.
 
 ## Kurulum
 
@@ -29,7 +29,7 @@ Express + TypeScript + PostgreSQL. Hazır modüller: auth (kayıt, e-posta doğr
    npm run db:migrate
    ```
 
-5. **Örnek veriyi yükle** (kategoriler ve ürünler; tekrar çalıştırılabilir, production'da çalışmaz)
+5. **Örnek veriyi yükle** (kategoriler, ürünler, sahte yorumcular ve değerlendirmeler; tekrar çalıştırılabilir, production'da çalışmaz)
    ```bash
    npm run db:seed
    ```
@@ -58,8 +58,15 @@ Express + TypeScript + PostgreSQL. Hazır modüller: auth (kayıt, e-posta doğr
 | GET | `/api/users/me` | `Authorization: Bearer <token>` | `200 { user }` | `401` |
 | PATCH | `/api/users/me` | `Authorization: Bearer <token>` + `{ name }` | `200 { user }` | `400` doğrulama, `401` |
 | GET | `/api/categories` | | `200 { categories: [{ id, name, slug, children: [{ id, name, slug }] }] }` | |
-| GET | `/api/products` | query (aşağıda) | `200 { items: ProductSummary[], pagination }` | `400 VALIDATION_ERROR`, `404 NOT_FOUND` (kategori yok) |
-| GET | `/api/products/:slug` | | `200 { product: ProductDetail }` | `404 NOT_FOUND` (yok veya pasif) |
+| GET | `/api/products` | query (aşağıda), token opsiyonel | `200 { items: ProductSummary[], pagination }` | `400 VALIDATION_ERROR`, `401 INVALID_TOKEN`, `404 NOT_FOUND` (kategori yok) |
+| GET | `/api/products/:slug` | token opsiyonel | `200 { product: ProductDetail }` | `401 INVALID_TOKEN`, `404 NOT_FOUND` (yok veya pasif) |
+| GET | `/api/favorites` | `Authorization: Bearer <token>`, query `page`, `limit` | `200 { items: ProductSummary[], pagination }` | `400 VALIDATION_ERROR`, `401` |
+| PUT | `/api/favorites/:productId` | `Authorization: Bearer <token>` | `200 { isFavorite: true, favoriteCount }` (idempotent) | `400 VALIDATION_ERROR` (UUID değil), `401`, `404 NOT_FOUND`, `429` |
+| DELETE | `/api/favorites/:productId` | `Authorization: Bearer <token>` | `200 { isFavorite: false, favoriteCount }` (idempotent) | `400 VALIDATION_ERROR`, `401`, `404 NOT_FOUND`, `429` |
+| GET | `/api/products/:slug/reviews` | query `page`, `limit`, `sort`; token opsiyonel | `200 { items: Review[], pagination, summary, myReview }` | `400 VALIDATION_ERROR`, `401 INVALID_TOKEN`, `404 NOT_FOUND` |
+| POST | `/api/products/:slug/reviews` | `Authorization: Bearer <token>` + `{ rating, comment? }` | `201 { review }` | `400 VALIDATION_ERROR`, `401`, `404 NOT_FOUND`, `409 REVIEW_EXISTS`, `429` |
+| PATCH | `/api/reviews/:id` | `Authorization: Bearer <token>` + `{ rating?, comment? }` (en az biri) | `200 { review }` | `400 VALIDATION_ERROR`, `401`, `404 NOT_FOUND` (yok veya başkasına ait) |
+| DELETE | `/api/reviews/:id` | `Authorization: Bearer <token>` | `204` | `400 VALIDATION_ERROR`, `401`, `404 NOT_FOUND` (yok veya başkasına ait) |
 
 Base URL: `http://localhost:8000/api`. `user` nesnesi: `{ id, name, email, role, emailVerified, createdAt }`.
 
@@ -75,7 +82,7 @@ E-posta bağlantıları frontend'e gider:
 
 ## Ürünler ve kategoriler
 
-Bu uçlar herkese açıktır (auth gerekmez). Admin CRUD yoktur; veri `npm run db:seed` ile yüklenir. Kategoriler iki seviyelidir (üst > alt), ürünlerde varyant yoktur (tek fiyat, tek stok), görseller yalnızca URL'dir.
+Bu uçlar herkese açıktır (auth gerekmez). Token gönderilirse kişiye özel alanlar (`isFavorite`, yorumlarda `myReview`/`isMine`) doldurulur; token yoksa `false`/`null` döner. `Authorization` başlığı gönderilip token geçersiz veya süresi dolmuşsa anonim sonuç yerine `401 INVALID_TOKEN` döner (frontend refresh dener). Admin CRUD yoktur; veri `npm run db:seed` ile yüklenir. Kategoriler iki seviyelidir (üst > alt), ürünlerde varyant yoktur (tek fiyat, tek stok), görseller yalnızca URL'dir.
 
 `GET /api/products` query parametreleri (hepsi opsiyonel):
 
@@ -87,7 +94,7 @@ Bu uçlar herkese açıktır (auth gerekmez). Admin CRUD yoktur; veri `npm run d
 | `q` | Ad veya markada büyük/küçük harf duyarsız arama, en fazla 100 karakter. |
 | `minPrice`, `maxPrice` | TL cinsinden sayı. `minPrice > maxPrice` ise `400`. |
 | `inStock` | `true` ise yalnızca stokta olanlar. |
-| `sort` | `newest` (varsayılan), `price_asc`, `price_desc`, `rating`, `discount` (indirim oranı yüksekten düşüğe, indirimsizler sonda). |
+| `sort` | `newest` (varsayılan), `price_asc`, `price_desc`, `rating`, `discount` (indirim oranı yüksekten düşüğe, indirimsizler sonda), `favorites` (favori sayısı yüksekten düşüğe). |
 
 Yalnızca aktif ürünler döner. `pagination`: `{ page, limit, total, totalPages }`.
 
@@ -104,7 +111,9 @@ interface ProductSummary {
   image: string | null;        // ilk görselin URL'i
   stock: number;
   inStock: boolean;
-  rating: { average: number; count: number };
+  rating: { average: number; count: number }; // gerçek yorumlardan hesaplanır; yorum yoksa 0 / 0
+  favoriteCount: number;
+  isFavorite: boolean;         // isteği yapan kullanıcının favorisinde mi; token yoksa false
   category: { id: string; name: string; slug: string };
 }
 
@@ -116,6 +125,47 @@ interface ProductDetail extends ProductSummary {
 ```
 
 Para veritabanında kuruş cinsinden `INTEGER` tutulur (`price_kurus`); API'de TL'ye çevrilir (`src/lib/money.ts`).
+
+## Favoriler
+
+Tüm uçlar giriş gerektirir. `PUT` ve `DELETE` idempotenttir: ürün zaten favorideyse (veya zaten değilse) yine `200` döner ve sayaç değişmez. Ürün yoksa veya pasifse `404 "Ürün bulunamadı."`. `GET /api/favorites` en son eklenen önce sıralıdır, pasif ürünleri içermez; `page`/`limit` kuralları `/api/products` ile aynıdır. `PUT`/`DELETE` için kullanıcı başına dakikada 60 istek sınırı vardır.
+
+`products.favorite_count` favori eklenip silindikçe aynı transaction içinde güncellenir.
+
+## Değerlendirmeler (yorumlar)
+
+Bir kullanıcı bir ürüne tek değerlendirme yazabilir; ikincisi `409 REVIEW_EXISTS` döner (mevcut olan `PATCH` ile düzenlenir). Satın alma doğrulaması henüz yoktur (sipariş modülü gelince eklenecek). `POST` için kullanıcı başına saatte 10 istek sınırı vardır.
+
+- `rating`: 1–5 arası tam sayı. `comment`: opsiyonel, trim edilir, en fazla 2000 karakter (verilmezse `""`).
+- `PATCH`/`DELETE`: değerlendirme yoksa veya başkasına aitse `404 "Değerlendirme bulunamadı."` (403 dönülmez).
+- Her ekleme/güncelleme/silmede ürünün `rating.average` (bir ondalık, yorum yoksa 0) ve `rating.count` değerleri aynı transaction içinde yeniden hesaplanır.
+
+`GET /api/products/:slug/reviews` query parametreleri: `page` (varsayılan 1), `limit` (varsayılan 10, 1–50), `sort`: `newest` (varsayılan), `rating_desc`, `rating_asc`.
+
+```ts
+interface Review {
+  id: string;
+  rating: number;      // 1–5
+  comment: string;     // boş olabilir
+  createdAt: string;
+  updatedAt: string;
+  isMine: boolean;     // isteği yapan kullanıcıya mı ait; token yoksa false
+  user: { displayName: string }; // kısaltılmış ad: "Berat Akar" → "Berat A."; e-posta/id dönmez
+}
+
+interface ReviewListResponse {
+  items: Review[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+  summary: {
+    average: number; // ürünün rating.average değeriyle aynı
+    count: number;
+    distribution: { "1": number; "2": number; "3": number; "4": number; "5": number };
+  };
+  myReview: Review | null; // isteği yapanın bu ürüne değerlendirmesi; token yoksa null
+}
+```
+
+`npm run db:seed` 8 sahte yorumcu (`yorumcu1@example.com` … `yorumcu8@example.com`; şifreleri yoktur, giriş yapamazlar) ve ürünlere örnek değerlendirmeler ekler. Gerçek kullanıcıların değerlendirme ve favorilerine dokunmaz.
 
 ## Google ile giriş
 
@@ -165,4 +215,6 @@ src/
   modules/users/         kullanıcı sorguları, GET ve PATCH /users/me
   modules/categories/    kategori ağacı (routes → controller → service → repository)
   modules/products/      ürün listesi ve detayı (routes → controller → service → repository)
+  modules/favorites/     favori ekleme/kaldırma ve favori listesi
+  modules/reviews/       ürün değerlendirmeleri (ürüne bağlı uçlar products.routes.ts'te bağlanır)
 ```

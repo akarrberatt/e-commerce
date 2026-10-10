@@ -23,3 +23,11 @@ export function validateBody(schema: ZodType) {
 export function parseQuery<S extends ZodType>(schema: S, req: Request): z.infer<S> {
   return parse(schema, req.query);
 }
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Yol parametresinin UUID olduğunu doğrular (aksi hâlde sorgu veritabanında hata verir). */
+export function parseUuid(value: string, message: string): string {
+  if (!UUID_PATTERN.test(value)) throw new HttpError(400, message, "VALIDATION_ERROR");
+  return value;
+}

@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 // Query değerleri string gelir; boş değer (?minPrice=) "verilmedi" sayılır.
-const emptyToUndefined = (value: unknown) => (value === "" ? undefined : value);
+export const emptyToUndefined = (value: unknown) => (value === "" ? undefined : value);
 
-const intParam = (label: string, min: number, max: number, fallback: number) =>
+export const intParam = (label: string, min: number, max: number, fallback: number) =>
   z.preprocess(
     emptyToUndefined,
     z.coerce
@@ -27,13 +27,19 @@ const priceParam = (label: string) =>
       .optional(),
   );
 
-export const PRODUCT_SORTS = ["newest", "price_asc", "price_desc", "rating", "discount"] as const;
+export const PRODUCT_SORTS = ["newest", "price_asc", "price_desc", "rating", "discount", "favorites"] as const;
 export type ProductSort = (typeof PRODUCT_SORTS)[number];
+
+export const pageParam = intParam("Sayfa numarası", 1, Number.MAX_SAFE_INTEGER, 1);
+const limitParam = intParam("Sayfa boyutu", 1, 50, 20);
+
+/** Ürün listesi döndüren diğer uçlar (ör. favoriler) aynı sayfalama kurallarını kullanır. */
+export const productPaginationSchema = z.object({ page: pageParam, limit: limitParam });
 
 export const listProductsQuerySchema = z
   .object({
-    page: intParam("Sayfa numarası", 1, Number.MAX_SAFE_INTEGER, 1),
-    limit: intParam("Sayfa boyutu", 1, 50, 20),
+    page: pageParam,
+    limit: limitParam,
     category: z
       .string({ error: "Kategori geçersiz." })
       .trim()
