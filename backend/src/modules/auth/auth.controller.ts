@@ -63,6 +63,11 @@ export async function resetPassword(req: Request, res: Response) {
   res.json({ message: "Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz." });
 }
 
+export async function changePassword(req: Request, res: Response) {
+  await authService.changePassword(req.auth!.sub, req.body, readRefreshCookie(req));
+  res.json({ message: "Şifreniz güncellendi." });
+}
+
 export async function login(req: Request, res: Response) {
   const { accessToken, refreshToken, user } = await authService.login(req.body);
   setRefreshCookie(res, refreshToken);

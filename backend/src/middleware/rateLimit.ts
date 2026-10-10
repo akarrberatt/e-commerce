@@ -19,5 +19,6 @@ export const registerLimiter = limiter(60, 10, "Çok fazla kayıt denemesi. Lüt
 export const resendLimiter = limiter(15, 3, "Çok fazla istek. Lütfen birkaç dakika sonra tekrar deneyin.");
 export const forgotPasswordLimiter = limiter(15, 3, "Çok fazla istek. Lütfen birkaç dakika sonra tekrar deneyin.");
 export const resetPasswordLimiter = limiter(15, 10, "Çok fazla deneme. Lütfen birkaç dakika sonra tekrar deneyin.");
+export const changePasswordLimiter = limiter(15, 10, "Çok fazla deneme. Lütfen birkaç dakika sonra tekrar deneyin.");
 // Not: /auth/refresh'e bilerek limit konmadı. Her sayfa açılışında çağrılıyor ve çerez yoksa
 // veritabanına gitmeden 401 dönüyor; limit ziyaretçileri gereksiz yere kilitleyebilir.

@@ -14,14 +14,16 @@ const newPassword = z
 
 const token = (missing: string) => z.string({ error: missing }).min(1, missing);
 
+export const name = z
+  .string({ error: "Ad soyad zorunlu." })
+  .trim()
+  .min(1, "Ad soyad boş olamaz.")
+  .max(100, "Ad soyad en fazla 100 karakter olabilir.");
+
 export const registerSchema = z.object({
   email,
   password: newPassword,
-  name: z
-    .string({ error: "Ad soyad zorunlu." })
-    .trim()
-    .min(1, "Ad soyad boş olamaz.")
-    .max(100, "Ad soyad en fazla 100 karakter olabilir."),
+  name,
   acceptedTerms: z.literal(true, {
     error: "Devam etmek için Kullanım Şartları ve Gizlilik Politikası'nı kabul etmelisiniz.",
   }),
@@ -41,6 +43,12 @@ export const resetPasswordSchema = z.object({
   password: newPassword,
 });
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string({ error: "Mevcut şifre zorunlu." }).min(1, "Mevcut şifre zorunlu."),
+  newPassword,
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

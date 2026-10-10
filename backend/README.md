@@ -44,12 +44,14 @@ Express + TypeScript + PostgreSQL. Şu an auth modülü hazır: kayıt, e-posta 
 | POST | `/api/auth/resend-verification` | `{ email }` | `200 { message }` (her durumda aynı) | `429` |
 | POST | `/api/auth/forgot-password` | `{ email }` | `200 { message }` (her durumda aynı) | `429` |
 | POST | `/api/auth/reset-password` | `{ token, password }` | `200 { message }`, tüm oturumlar kapatılır | `400 INVALID_RESET_TOKEN`, `429` |
+| POST | `/api/auth/change-password` | `Authorization: Bearer <token>` + `{ currentPassword, newPassword }` (+ cookie) | `200 { message }`, diğer cihazlardaki oturumlar kapatılır | `400 INVALID_CURRENT_PASSWORD`, `400 SAME_PASSWORD`, `400 PASSWORD_NOT_SET`, `401`, `429` |
 | POST | `/api/auth/login` | `{ email, password }` | `200 { token, user }` + `Set-Cookie: refresh_token` | `401 INVALID_CREDENTIALS`, `403 EMAIL_NOT_VERIFIED`, `429` |
 | POST | `/api/auth/refresh` | (cookie) | `200 { token, user }` + yeni cookie | `401 INVALID_REFRESH_TOKEN` |
 | POST | `/api/auth/logout` | (cookie) | `204` | |
 | GET | `/api/auth/google` | | `302` Google'a | |
 | GET | `/api/auth/google/callback` | (Google'dan) | `302 FRONTEND_URL/auth/callback` + refresh çerezi | `302 FRONTEND_URL/auth/callback?error=google` |
 | GET | `/api/users/me` | `Authorization: Bearer <token>` | `200 { user }` | `401` |
+| PATCH | `/api/users/me` | `Authorization: Bearer <token>` + `{ name }` | `200 { user }` | `400` doğrulama, `401` |
 
 Base URL: `http://localhost:8000/api`. `user` nesnesi: `{ id, name, email, role, emailVerified, createdAt }`.
 
@@ -82,9 +84,11 @@ Hesap eşleştirme kuralları:
 - Access token: JWT, 15 dk. Refresh token: opaque, 7 gün, `HttpOnly` + `SameSite=Lax` cookie, `Path=/api/auth`.
 - **Refresh rotation:** her refresh'te eski token iptal edilir. Eski token `REFRESH_GRACE_SECONDS` (30 sn) içinde tekrar gelirse (iki sekme aynı anda yeniledi) kullanıcı çıkarılmaz, yeni token verilir. Bu süreden sonra gelirse çalınma şüphesiyle kullanıcının tüm oturumları kapatılır.
 - Şifre sıfırlanınca kullanıcının tüm oturumları kapatılır.
+- Şifre değiştirilince (`change-password`) isteği yapan cihaz hariç tüm oturumlar kapatılır; istekte refresh çerezi yoksa hepsi kapatılır. Yanlış mevcut şifre `401` değil `400` döner (frontend 401'de oturumu kapatır).
+- Şifresi olmayan (Google ile açılmış) hesap `change-password` ile şifre belirleyemez (`400 PASSWORD_NOT_SET`); çalınmış bir access token kalıcı erişime dönüşmesin diye şifre yalnızca "şifremi unuttum" e-postasıyla belirlenir.
 - Kayıtta `acceptedTerms: true` zorunludur; onay zamanı ve metin sürümü (`TERMS_VERSION`) `users` tablosunda saklanır.
 - Login'de önce şifre kontrol edilir; şifre yanlışsa hesabın var olup olmadığı ya da doğrulanıp doğrulanmadığı belli olmaz.
-- Login, register, resend-verification, forgot-password ve reset-password uçlarında IP bazlı rate limit vardır. `/auth/refresh`'te yoktur (çerez yoksa veritabanına gitmeden 401 döner).
+- Login, register, resend-verification, forgot-password, reset-password ve change-password uçlarında IP bazlı rate limit vardır. `/auth/refresh`'te yoktur (çerez yoksa veritabanına gitmeden 401 döner).
 - Production'da `COOKIE_SECURE=true` olmalı ve uygulama bir proxy arkasındaysa `app.ts` içindeki `trust proxy` satırı açılmalı.
 
 ## Rol tabanlı yetki
@@ -105,5 +109,5 @@ src/
   lib/                   token, şifre, e-posta yardımcıları
   middleware/            auth, doğrulama, rate limit, hata yakalama
   modules/auth/          auth endpoint'leri (routes → controller → service), google.ts
-  modules/users/         kullanıcı sorguları ve /users/me
+  modules/users/         kullanıcı sorguları, GET ve PATCH /users/me
 ```

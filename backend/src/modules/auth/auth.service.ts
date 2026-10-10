@@ -11,7 +11,7 @@ import {
   type PublicUser,
   type UserRow,
 } from "../users/users.repository.js";
-import type { LoginInput, RegisterInput, ResetPasswordInput } from "./auth.schemas.js";
+import type { ChangePasswordInput, LoginInput, RegisterInput, ResetPasswordInput } from "./auth.schemas.js";
 
 export interface AuthResult {
   accessToken: string;
@@ -19,7 +19,7 @@ export interface AuthResult {
   user: PublicUser;
 }
 
-type RevokeReason = "rotated" | "logout" | "reuse" | "password_reset";
+type RevokeReason = "rotated" | "logout" | "reuse" | "password_reset" | "password_change";
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -187,6 +187,55 @@ export async function resetPassword(input: ResetPasswordInput): Promise<void> {
     );
     // Şifre değişti: açık tüm oturumları kapat.
     await revokeAllSessions(row.user_id, "password_reset", db);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Şifre değiştirme (giriş yapmış kullanıcı)
+// ---------------------------------------------------------------------------
+
+export async function changePassword(
+  userId: string,
+  input: ChangePasswordInput,
+  currentRefreshToken: string | undefined,
+): Promise<void> {
+  const user = await findUserById(userId);
+  if (!user) throw new HttpError(404, "Kullanıcı bulunamadı.", "NOT_FOUND");
+
+  // Google ile açılmış şifresiz hesap: mevcut şifre olmadan şifre belirlemeye izin verme.
+  // Aksi halde çalınmış bir access token ile hesaba kalıcı erişim sağlanabilir.
+  if (!user.password_hash) {
+    throw new HttpError(
+      400,
+      "Hesabınız için henüz bir şifre belirlenmemiş. 'Şifremi unuttum' ile şifre oluşturabilirsiniz.",
+      "PASSWORD_NOT_SET",
+    );
+  }
+  // 401 değil 400: frontend 401'de refresh deneyip oturumu kapatıyor.
+  if (!(await verifyPassword(input.currentPassword, user.password_hash))) {
+    throw new HttpError(400, "Mevcut şifreniz hatalı.", "INVALID_CURRENT_PASSWORD");
+  }
+  if (input.newPassword === input.currentPassword) {
+    throw new HttpError(400, "Yeni şifre mevcut şifrenizle aynı olamaz.", "SAME_PASSWORD");
+  }
+
+  const passwordHash = await hashPassword(input.newPassword);
+
+  await withTransaction(async (db) => {
+    // Kontrol ile güncelleme arasında şifre başka bir istekle değiştiyse güncelleme.
+    const { rowCount } = await db.query(
+      "UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1 AND password_hash = $3",
+      [user.id, passwordHash, user.password_hash],
+    );
+    if (!rowCount) throw new HttpError(400, "Mevcut şifreniz hatalı.", "INVALID_CURRENT_PASSWORD");
+
+    // Diğer cihazlardaki oturumları kapat; bu isteğin çerezindeki oturum açık kalır.
+    // Çerez yoksa hash hiçbir satırla eşleşmez ve tüm oturumlar kapanır.
+    await db.query(
+      `UPDATE refresh_tokens SET revoked_at = now(), revoke_reason = 'password_change'
+        WHERE user_id = $1 AND revoked_at IS NULL AND token_hash <> $2`,
+      [user.id, currentRefreshToken ? hashToken(currentRefreshToken) : ""],
+    );
   });
 }
 

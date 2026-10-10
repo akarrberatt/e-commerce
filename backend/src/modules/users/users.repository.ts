@@ -42,3 +42,11 @@ export async function findUserById(id: string, db: DbClient = pool) {
   const { rows } = await db.query<UserRow>("SELECT * FROM users WHERE id = $1", [id]);
   return rows[0] ?? null;
 }
+
+export async function updateUserName(id: string, name: string, db: DbClient = pool) {
+  const { rows } = await db.query<UserRow>(
+    "UPDATE users SET name = $2, updated_at = now() WHERE id = $1 RETURNING *",
+    [id, name],
+  );
+  return rows[0] ?? null;
+}
