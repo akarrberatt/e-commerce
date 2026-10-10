@@ -31,6 +31,12 @@ Express 5 + TypeScript + PostgreSQL (ham SQL ile `pg`), doğrulama `zod` ile. Mo
 - Veritabanı değişiklikleri yeni bir numaralı SQL migration dosyasıyla yapılır (`src/db/migrations/NNN_ad.sql`); mevcut migration'lar asla düzenlenmez.
 - `products.favorite_count`, `rating_avg` ve `rating_count` türetilmiş alanlardır; favori/yorum değişikliğiyle aynı transaction içinde güncellenir.
 
+## Katalog
+
+- Frontend'in sabit bağlantı verdiği kategori slug'ları değiştirilemez: `giyim`, `erkek-giyim`, `telefon`, `bilgisayar`, `kulaklik`, `makyaj`, `kitap`, `ev-yasam`, `spor`, `ayakkabi`. Değişiklik gerekiyorsa önce frontend'e haber verilir. (Seed, listede olup kendisinde bulunmayan slug için uyarı basar.)
+- Görsel URL'leri yanıtta her zaman `toPublicUrl()` (`src/lib/publicUrl.ts`) ile döner: `/` ile başlayan yol `PUBLIC_BASE_URL` ile tam URL'e çevrilir, `http(s)://` olduğu gibi kalır. Görseli olmayan üründe `image: null`, `images: []`; yer tutucu görsel üretilmez.
+- Metin araması Türkçe karakter duyarsızdır: JS'te `normalizeSearch()`, SQL'de `sqlNormalize()` (`src/lib/search.ts`). İkisi aynı eşlemeyi kullanır; arama yapan her sorgu bunları kullanmalı ve `%`/`_` kaçışını (`likePatterns`) korumalıdır.
+
 ## Token'lar
 
 - Refresh token çerezi `HttpOnly`, `SameSite=Lax`, `Path=/api/auth`.

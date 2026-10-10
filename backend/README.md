@@ -1,6 +1,6 @@
 # E-Commerce Backend
 
-Express + TypeScript + PostgreSQL. Hazır modüller: auth (kayıt, e-posta doğrulama, giriş, şifre sıfırlama, Google ile giriş, refresh token rotation, çıkış), profil, kategoriler, ürünler (listeleme, filtreleme, detay), favoriler ve ürün değerlendirmeleri.
+Express + TypeScript + PostgreSQL. Hazır modüller: auth (kayıt, e-posta doğrulama, giriş, şifre sıfırlama, Google ile giriş, refresh token rotation, çıkış), profil, kategoriler, markalar, ürünler (listeleme, filtreleme, arama önerisi, detay), favoriler ve ürün değerlendirmeleri.
 
 ## Kurulum
 
@@ -15,7 +15,7 @@ Express + TypeScript + PostgreSQL. Hazır modüller: auth (kayıt, e-posta doğr
    docker compose up -d
    ```
    Bu, PostgreSQL'i (5432) ve Mailpit'i başlatır. Gönderilen e-postaları http://localhost:8025 adresinde görürsün.
-   Docker yoksa PostgreSQL'i kendin kur ve `ecommerce` adında bir veritabanı oluştur.
+   Docker yoksa aşağıdaki [Docker olmadan kurulum](#docker-olmadan-kurulum) bölümüne bak.
 
 3. **Ortam değişkenleri**
    `.env.example` dosyasını `.env` olarak kopyala ve `JWT_ACCESS_SECRET` değerini değiştir:
@@ -29,7 +29,7 @@ Express + TypeScript + PostgreSQL. Hazır modüller: auth (kayıt, e-posta doğr
    npm run db:migrate
    ```
 
-5. **Örnek veriyi yükle** (kategoriler, ürünler, sahte yorumcular ve değerlendirmeler; tekrar çalıştırılabilir, production'da çalışmaz)
+5. **Örnek veriyi yükle** (kategoriler, markalar, ürünler, sahte yorumcular ve değerlendirmeler; tekrar çalıştırılabilir, production'da çalışmaz)
    ```bash
    npm run db:seed
    ```
@@ -39,6 +39,22 @@ Express + TypeScript + PostgreSQL. Hazır modüller: auth (kayıt, e-posta doğr
    npm run dev
    ```
    API: http://localhost:8000/api
+
+### Docker olmadan kurulum
+
+Docker yoksa yalnızca 2. adım değişir; diğer adımlar aynıdır.
+
+1. **PostgreSQL 16'yı yerel kur**
+   - macOS: `brew install postgresql@16 && brew services start postgresql@16`
+   - Windows: [resmi installer](https://www.postgresql.org/download/windows/) (kurulumda `postgres` kullanıcısının şifresini `postgres` yap)
+2. **Kullanıcı ve veritabanı**: `.env.example`'daki `DATABASE_URL` `postgres` / `postgres` kullanıcısını ve `ecommerce` veritabanını bekler.
+   ```bash
+   # macOS'ta Homebrew "postgres" rolünü oluşturmaz; önce onu oluştur (Windows'ta bu satırı atla):
+   psql postgres -c "CREATE ROLE postgres WITH LOGIN SUPERUSER PASSWORD 'postgres';"
+   psql -U postgres -h localhost -c "CREATE DATABASE ecommerce;"
+   ```
+   Farklı bir kullanıcı/şifre kullanacaksan `.env` içindeki `DATABASE_URL`'i ona göre değiştir.
+3. **E-posta**: Mailpit olmadığı için `.env`'de `SMTP_HOST` boş kalsın. Bu durumda e-posta gönderilmez; doğrulama ve şifre sıfırlama bağlantıları sunucu konsoluna (`npm run dev` çıktısı) yazılır, oradan kopyalayıp tarayıcıda açarsın.
 
 ## Endpoint'ler
 
@@ -60,6 +76,9 @@ Express + TypeScript + PostgreSQL. Hazır modüller: auth (kayıt, e-posta doğr
 | GET | `/api/categories` | | `200 { categories: [{ id, name, slug, children: [{ id, name, slug }] }] }` | |
 | GET | `/api/products` | query (aşağıda), token opsiyonel | `200 { items: ProductSummary[], pagination }` | `400 VALIDATION_ERROR`, `401 INVALID_TOKEN`, `404 NOT_FOUND` (kategori yok) |
 | GET | `/api/products/:slug` | token opsiyonel | `200 { product: ProductDetail }` | `401 INVALID_TOKEN`, `404 NOT_FOUND` (yok veya pasif) |
+| GET | `/api/brands` | query `category` (opsiyonel) | `200 { brands: [{ name, slug, productCount }] }` | `400 VALIDATION_ERROR`, `404 NOT_FOUND` (kategori yok) |
+| GET | `/api/search/suggest` | query `q` | `200 { products, categories, brands }` | `400 VALIDATION_ERROR` (100 karakterden uzun), `429 RATE_LIMITED` |
+| GET | `/static/products/<dosya>` | (`/api` altında değil) | `200` görsel dosyası | `404` |
 | GET | `/api/favorites` | `Authorization: Bearer <token>`, query `page`, `limit` | `200 { items: ProductSummary[], pagination }` | `400 VALIDATION_ERROR`, `401` |
 | PUT | `/api/favorites/:productId` | `Authorization: Bearer <token>` | `200 { isFavorite: true, favoriteCount }` (idempotent) | `400 VALIDATION_ERROR` (UUID değil), `401`, `404 NOT_FOUND`, `429` |
 | DELETE | `/api/favorites/:productId` | `Authorization: Bearer <token>` | `200 { isFavorite: false, favoriteCount }` (idempotent) | `400 VALIDATION_ERROR`, `401`, `404 NOT_FOUND`, `429` |
@@ -82,7 +101,7 @@ E-posta bağlantıları frontend'e gider:
 
 ## Ürünler ve kategoriler
 
-Bu uçlar herkese açıktır (auth gerekmez). Token gönderilirse kişiye özel alanlar (`isFavorite`, yorumlarda `myReview`/`isMine`) doldurulur; token yoksa `false`/`null` döner. `Authorization` başlığı gönderilip token geçersiz veya süresi dolmuşsa anonim sonuç yerine `401 INVALID_TOKEN` döner (frontend refresh dener). Admin CRUD yoktur; veri `npm run db:seed` ile yüklenir. Kategoriler iki seviyelidir (üst > alt), ürünlerde varyant yoktur (tek fiyat, tek stok), görseller yalnızca URL'dir.
+Bu uçlar herkese açıktır (auth gerekmez). Token gönderilirse kişiye özel alanlar (`isFavorite`, yorumlarda `myReview`/`isMine`) doldurulur; token yoksa `false`/`null` döner. `Authorization` başlığı gönderilip token geçersiz veya süresi dolmuşsa anonim sonuç yerine `401 INVALID_TOKEN` döner (frontend refresh dener). Admin CRUD yoktur; veri `npm run db:seed` ile yüklenir. Kategoriler iki seviyelidir (üst > alt), ürünlerde varyant yoktur (tek fiyat, tek stok).
 
 `GET /api/products` query parametreleri (hepsi opsiyonel):
 
@@ -91,10 +110,12 @@ Bu uçlar herkese açıktır (auth gerekmez). Token gönderilirse kişiye özel 
 | `page` | Varsayılan 1, en az 1. `total`'i aşan sayfa boş `items` ile `200` döner. |
 | `limit` | Varsayılan 20, 1–50. |
 | `category` | Kategori slug'ı. Üst kategoriyse alt kategorilerinin ürünleri de gelir. Bulunamazsa `404`. |
-| `q` | Ad veya markada büyük/küçük harf duyarsız arama, en fazla 100 karakter. |
+| `brand` | Virgülle ayrılmış marka slug'ları (`brand=novabit,tekvia`), en fazla 10. Bilinmeyen slug hata değildir, eşleşen ürün olmaz. |
+| `q` | Ürün adı veya marka adında arama, en fazla 100 karakter. Büyük/küçük harf ve Türkçe karakter duyarsızdır (`KULAKLIK`, `kulaklik`, `Kulaklık` aynı sonucu verir). |
 | `minPrice`, `maxPrice` | TL cinsinden sayı. `minPrice > maxPrice` ise `400`. |
 | `inStock` | `true` ise yalnızca stokta olanlar. |
-| `sort` | `newest` (varsayılan), `price_asc`, `price_desc`, `rating`, `discount` (indirim oranı yüksekten düşüğe, indirimsizler sonda), `favorites` (favori sayısı yüksekten düşüğe). |
+| `minRatingCount` | Tam sayı, 0–100000, varsayılan 0. Yalnızca en az bu kadar değerlendirmesi olan ürünler. |
+| `sort` | `newest` (varsayılan), `price_asc`, `price_desc`, `rating` (Bayes ortalaması, aşağıda), `discount` (indirim oranı yüksekten düşüğe, indirimsizler sonda), `favorites` (favori sayısı yüksekten düşüğe). |
 
 Yalnızca aktif ürünler döner. `pagination`: `{ page, limit, total, totalPages }`.
 
@@ -103,12 +124,12 @@ interface ProductSummary {
   id: string;
   slug: string;
   name: string;
-  brand: string | null;
+  brand: { name: string; slug: string } | null;
   price: number;               // TL, ör. 1299.9
   oldPrice: number | null;     // indirim öncesi fiyat (TL)
   discountRate: number | null; // tam sayı yüzde; oldPrice yoksa null
   currency: "TRY";
-  image: string | null;        // ilk görselin URL'i
+  image: string | null;        // ilk görselin tam URL'i; görseli olmayan üründe null
   stock: number;
   inStock: boolean;
   rating: { average: number; count: number }; // gerçek yorumlardan hesaplanır; yorum yoksa 0 / 0
@@ -119,12 +140,46 @@ interface ProductSummary {
 
 interface ProductDetail extends ProductSummary {
   description: string;
-  images: { url: string; alt: string }[];      // sıralı
+  images: { url: string; alt: string }[];      // sıralı, tam URL; görsel yoksa []
   breadcrumb: { name: string; slug: string }[]; // üst kategori (varsa), sonra ürünün kategorisi
 }
 ```
 
 Para veritabanında kuruş cinsinden `INTEGER` tutulur (`price_kurus`); API'de TL'ye çevrilir (`src/lib/money.ts`).
+
+### Puan sıralaması
+
+`sort=rating` ham ortalamaya göre değil Bayes ortalamasına göre sıralar; böylece tek yorumla 5 puan almış bir ürün, yüzlerce yorumla 4.7 almış ürünün önüne geçmez:
+
+```
+skor = (v / (v + m)) * R + (m / (v + m)) * C
+```
+
+`v` = ürünün değerlendirme sayısı, `R` = ürünün ortalaması, `m` = 10, `C` = aktif ürünlerin değerlendirme sayısıyla ağırlıklı genel ortalaması (her istekte hesaplanır). Eşitlikte `id`. Skor yanıtta dönmez; `rating.average` gerçek ortalamadır.
+
+### Görseller
+
+`backend/public` klasörü `/static` altında sunulur (ör. `http://localhost:8000/static/products/<slug>.jpg`): `Cache-Control: public, max-age=604800`, `Cross-Origin-Resource-Policy: cross-origin` (frontend farklı origin'den yükleyebilsin diye; yalnızca `/static` için). Dizin listeleme yoktur.
+
+`product_images.url` ya tam bir `http(s)://` URL'idir ya da `/static/...` ile başlayan bir yoldur; ikincisi yanıtta `PUBLIC_BASE_URL` (`.env`, varsayılan `http://localhost:8000`) ile tam URL'e çevrilir. Görseli olmayan üründe `image: null`, `images: []` döner; yer tutucu görsel üretilmez.
+
+Seed, ürün tanımında `images` verilmişse onu kullanır; verilmemişse `public/products/` altında `<slug>.jpg`, `<slug>-2.jpg`, `<slug>-3.jpg` dosyalarını arar. Yeni görsel eklemek için dosyayı bu adla klasöre koyup `npm run db:seed` çalıştırmak yeterlidir.
+
+### Markalar
+
+`GET /api/brands` yalnızca aktif ürünü olan markaları ada göre sıralı döner; `productCount` aktif ürün sayısıdır. `category=<slug>` verilirse yalnızca o kategorideki ürünler sayılır (üst kategori alt kategorilerini kapsar); bilinmeyen kategori `404`.
+
+### Arama önerisi
+
+`GET /api/search/suggest?q=...` herkese açıktır. `q` trim edilir; 2 karakterden kısaysa üç dizi de boş döner (`200`), 100 karakterden uzunsa `400`. Arama, ürün listesindeki `q` ile aynı Türkçe karakter duyarsız eşleştirmeyi kullanır; adı `q` ile başlayanlar önce gelir. IP başına dakikada 120 istek sınırı vardır (`429 RATE_LIMITED`).
+
+```ts
+interface Suggestions {
+  products: { id: string; slug: string; name: string; image: string | null; price: number }[]; // en fazla 6, aktif ürünler
+  categories: { name: string; slug: string }[]; // en fazla 4
+  brands: { name: string; slug: string }[];     // en fazla 4, aktif ürünü olanlar
+}
+```
 
 ## Favoriler
 
@@ -165,7 +220,7 @@ interface ReviewListResponse {
 }
 ```
 
-`npm run db:seed` 8 sahte yorumcu (`yorumcu1@example.com` … `yorumcu8@example.com`; şifreleri yoktur, giriş yapamazlar) ve ürünlere örnek değerlendirmeler ekler. Gerçek kullanıcıların değerlendirme ve favorilerine dokunmaz.
+`npm run db:seed` 80 sahte yorumcu (`yorumcu1@example.com` … `yorumcu80@example.com`; şifreleri yoktur, giriş yapamazlar) ve ürünlere örnek değerlendirmeler ekler. Gerçek kullanıcıların değerlendirme ve favorilerine dokunmaz.
 
 ## Google ile giriş
 
@@ -207,9 +262,9 @@ Bir kullanıcıyı admin yapmak için: `UPDATE users SET role = 'ADMIN' WHERE em
 
 ```
 src/
-  config/env.ts          ortam değişkenleri (zod ile doğrulanır)
+  config/                ortam değişkenleri (env.ts, zod ile doğrulanır), klasör yolları (paths.ts)
   db/                    bağlantı havuzu, migration çalıştırıcı, SQL dosyaları ve seed.ts
-  lib/                   token, şifre, e-posta, para (kuruş ↔ TL) yardımcıları
+  lib/                   token, şifre, e-posta, para (kuruş ↔ TL), görsel URL'i ve arama normalizasyonu yardımcıları
   middleware/            auth, doğrulama, rate limit, hata yakalama
   modules/auth/          auth endpoint'leri (routes → controller → service), google.ts
   modules/users/         kullanıcı sorguları, GET ve PATCH /users/me
@@ -217,4 +272,7 @@ src/
   modules/products/      ürün listesi ve detayı (routes → controller → service → repository)
   modules/favorites/     favori ekleme/kaldırma ve favori listesi
   modules/reviews/       ürün değerlendirmeleri (ürüne bağlı uçlar products.routes.ts'te bağlanır)
+  modules/brands/        marka listesi ve ürün sayıları
+  modules/search/        arama önerisi (GET /search/suggest)
+public/products/         ürün görselleri (<slug>.jpg); /static/products altında sunulur
 ```

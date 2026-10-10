@@ -7,6 +7,8 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().default(8000),
   FRONTEND_URL: z.string().url().default("http://localhost:5173"),
+  // Bu sunucunun dışarıdan erişilen adresi; /static altındaki görsellerin tam URL'i bununla kurulur
+  PUBLIC_BASE_URL: z.string().url().default("http://localhost:8000"),
   DATABASE_URL: z.string().min(1, "DATABASE_URL zorunlu"),
   JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET en az 32 karakter olmalı"),
   ACCESS_TOKEN_TTL: z.string().default("15m"),

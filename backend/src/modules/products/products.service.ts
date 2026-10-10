@@ -1,5 +1,6 @@
 import { HttpError } from "../../lib/httpError.js";
 import { CURRENCY, kurusToTl, tlToKurus } from "../../lib/money.js";
+import { toPublicUrl } from "../../lib/publicUrl.js";
 import { findCategoryIdsBySlug } from "../categories/categories.repository.js";
 import type { CategoryRef } from "../categories/categories.service.js";
 import {
@@ -16,7 +17,7 @@ export interface ProductSummary {
   id: string;
   slug: string;
   name: string;
-  brand: string | null;
+  brand: { name: string; slug: string } | null;
   price: number;
   oldPrice: number | null;
   /** Tam sayı yüzde; eski fiyat yoksa null. */
@@ -49,12 +50,12 @@ export function toSummary(row: ProductRow): ProductSummary {
     id: row.id,
     slug: row.slug,
     name: row.name,
-    brand: row.brand,
+    brand: row.brand_name && row.brand_slug ? { name: row.brand_name, slug: row.brand_slug } : null,
     price: kurusToTl(row.price_kurus),
     oldPrice: old === null ? null : kurusToTl(old),
     discountRate: old === null ? null : Math.round(((old - row.price_kurus) / old) * 100),
     currency: CURRENCY,
-    image: row.image,
+    image: toPublicUrl(row.image),
     stock: row.stock,
     inStock: row.stock > 0,
     rating: { average: Number(row.rating_avg), count: row.rating_count },
@@ -70,6 +71,8 @@ export async function listProducts(query: ListProductsQuery, viewerId: string | 
     minPriceKurus: query.minPrice === undefined ? undefined : tlToKurus(query.minPrice),
     maxPriceKurus: query.maxPrice === undefined ? undefined : tlToKurus(query.maxPrice),
     inStock: query.inStock,
+    brandSlugs: query.brand,
+    minRatingCount: query.minRatingCount,
   };
 
   if (query.category) {
@@ -95,7 +98,7 @@ export async function getProduct(slug: string, viewerId: string | null): Promise
   const row = await findActiveProductBySlug(slug, viewerId);
   if (!row) throw new HttpError(404, "Ürün bulunamadı.", "NOT_FOUND");
 
-  const images = await findProductImages(row.id);
+  const images = (await findProductImages(row.id)).map((image) => ({ url: toPublicUrl(image.url), alt: image.alt }));
   const breadcrumb = [{ name: row.category_name, slug: row.category_slug }];
   if (row.parent_category_name && row.parent_category_slug) {
     breadcrumb.unshift({ name: row.parent_category_name, slug: row.parent_category_slug });

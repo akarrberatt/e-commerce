@@ -29,5 +29,6 @@ export const createReviewLimiter = limiter(
   "Çok fazla değerlendirme gönderdiniz. Lütfen daha sonra tekrar deneyin.",
   true,
 );
+export const suggestLimiter = limiter(1, 120, "Çok fazla istek. Lütfen biraz sonra tekrar deneyin.");
 // Not: /auth/refresh'e bilerek limit konmadı. Her sayfa açılışında çağrılıyor ve çerez yoksa
 // veritabanına gitmeden 401 dönüyor; limit ziyaretçileri gereksiz yere kilitleyebilir.

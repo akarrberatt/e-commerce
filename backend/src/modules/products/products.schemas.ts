@@ -27,6 +27,15 @@ const priceParam = (label: string) =>
       .optional(),
   );
 
+const MAX_BRANDS = 10;
+
+/** Kategori slug'ı filtresi (ürün listesi ve marka listesi ortak kullanır). */
+export const categoryParam = z
+  .string({ error: "Kategori geçersiz." })
+  .trim()
+  .max(100, "Kategori geçersiz.")
+  .optional();
+
 export const PRODUCT_SORTS = ["newest", "price_asc", "price_desc", "rating", "discount", "favorites"] as const;
 export type ProductSort = (typeof PRODUCT_SORTS)[number];
 
@@ -40,11 +49,17 @@ export const listProductsQuerySchema = z
   .object({
     page: pageParam,
     limit: limitParam,
-    category: z
-      .string({ error: "Kategori geçersiz." })
-      .trim()
-      .max(100, "Kategori geçersiz.")
-      .optional(),
+    category: categoryParam,
+    // Virgülle ayrılmış marka slug'ları: ?brand=novabit,tekvia
+    brand: z
+      .string({ error: "Marka geçersiz." })
+      .max(1000, "Marka geçersiz.")
+      .optional()
+      .transform((value) => {
+        const slugs = [...new Set((value ?? "").split(",").map((slug) => slug.trim()).filter(Boolean))];
+        return slugs.length ? slugs : undefined;
+      })
+      .refine((slugs) => !slugs || slugs.length <= MAX_BRANDS, `En fazla ${MAX_BRANDS} marka seçilebilir.`),
     q: z
       .string({ error: "Arama metni geçersiz." })
       .trim()
@@ -56,6 +71,7 @@ export const listProductsQuerySchema = z
       .enum(["true", "false"], { error: "Stok filtresi 'true' veya 'false' olmalı." })
       .optional()
       .transform((value) => value === "true"),
+    minRatingCount: intParam("En az yorum sayısı", 0, 100_000, 0),
     sort: z.preprocess(
       emptyToUndefined,
       z.enum(PRODUCT_SORTS, { error: "Geçersiz sıralama seçeneği." }).default("newest"),
