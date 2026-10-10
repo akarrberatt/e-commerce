@@ -5,6 +5,8 @@ import helmet from "helmet";
 import { env } from "./config/env.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { categoriesRouter } from "./modules/categories/categories.routes.js";
+import { productsRouter } from "./modules/products/products.routes.js";
 import { usersRouter } from "./modules/users/users.routes.js";
 
 export const app = express();
@@ -33,6 +35,8 @@ api.get("/health", (_req, res) => {
 
 api.use("/auth", authRouter);
 api.use("/users", usersRouter);
+api.use("/categories", categoriesRouter);
+api.use("/products", productsRouter);
 
 app.use("/api", api);
 

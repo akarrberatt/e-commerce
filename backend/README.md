@@ -1,6 +1,6 @@
 # E-Commerce Backend
 
-Express + TypeScript + PostgreSQL. Şu an auth modülü hazır: kayıt, e-posta doğrulama, giriş, şifre sıfırlama, Google ile giriş, refresh token rotation ve çıkış.
+Express + TypeScript + PostgreSQL. Hazır modüller: auth (kayıt, e-posta doğrulama, giriş, şifre sıfırlama, Google ile giriş, refresh token rotation, çıkış), profil, kategoriler ve ürünler (listeleme, filtreleme, detay).
 
 ## Kurulum
 
@@ -29,7 +29,12 @@ Express + TypeScript + PostgreSQL. Şu an auth modülü hazır: kayıt, e-posta 
    npm run db:migrate
    ```
 
-5. **Çalıştır**
+5. **Örnek veriyi yükle** (kategoriler ve ürünler; tekrar çalıştırılabilir, production'da çalışmaz)
+   ```bash
+   npm run db:seed
+   ```
+
+6. **Çalıştır**
    ```bash
    npm run dev
    ```
@@ -52,6 +57,9 @@ Express + TypeScript + PostgreSQL. Şu an auth modülü hazır: kayıt, e-posta 
 | GET | `/api/auth/google/callback` | (Google'dan) | `302 FRONTEND_URL/auth/callback` + refresh çerezi | `302 FRONTEND_URL/auth/callback?error=google` |
 | GET | `/api/users/me` | `Authorization: Bearer <token>` | `200 { user }` | `401` |
 | PATCH | `/api/users/me` | `Authorization: Bearer <token>` + `{ name }` | `200 { user }` | `400` doğrulama, `401` |
+| GET | `/api/categories` | | `200 { categories: [{ id, name, slug, children: [{ id, name, slug }] }] }` | |
+| GET | `/api/products` | query (aşağıda) | `200 { items: ProductSummary[], pagination }` | `400 VALIDATION_ERROR`, `404 NOT_FOUND` (kategori yok) |
+| GET | `/api/products/:slug` | | `200 { product: ProductDetail }` | `404 NOT_FOUND` (yok veya pasif) |
 
 Base URL: `http://localhost:8000/api`. `user` nesnesi: `{ id, name, email, role, emailVerified, createdAt }`.
 
@@ -64,6 +72,50 @@ E-posta bağlantıları frontend'e gider:
 - Şifre sıfırlama: `FRONTEND_URL/reset-password?token=...` (60 dk, tek kullanımlık) → frontend `POST /api/auth/reset-password`
 
 `403` iki durumda döner: login'de e-posta doğrulanmamışsa (`EMAIL_NOT_VERIFIED`) ve rol gerektiren uçlarda yetkisiz kullanıcıya (`FORBIDDEN`). Frontend `code` alanına bakarak ayırt eder.
+
+## Ürünler ve kategoriler
+
+Bu uçlar herkese açıktır (auth gerekmez). Admin CRUD yoktur; veri `npm run db:seed` ile yüklenir. Kategoriler iki seviyelidir (üst > alt), ürünlerde varyant yoktur (tek fiyat, tek stok), görseller yalnızca URL'dir.
+
+`GET /api/products` query parametreleri (hepsi opsiyonel):
+
+| Parametre | Açıklama |
+|---|---|
+| `page` | Varsayılan 1, en az 1. `total`'i aşan sayfa boş `items` ile `200` döner. |
+| `limit` | Varsayılan 20, 1–50. |
+| `category` | Kategori slug'ı. Üst kategoriyse alt kategorilerinin ürünleri de gelir. Bulunamazsa `404`. |
+| `q` | Ad veya markada büyük/küçük harf duyarsız arama, en fazla 100 karakter. |
+| `minPrice`, `maxPrice` | TL cinsinden sayı. `minPrice > maxPrice` ise `400`. |
+| `inStock` | `true` ise yalnızca stokta olanlar. |
+| `sort` | `newest` (varsayılan), `price_asc`, `price_desc`, `rating`, `discount` (indirim oranı yüksekten düşüğe, indirimsizler sonda). |
+
+Yalnızca aktif ürünler döner. `pagination`: `{ page, limit, total, totalPages }`.
+
+```ts
+interface ProductSummary {
+  id: string;
+  slug: string;
+  name: string;
+  brand: string | null;
+  price: number;               // TL, ör. 1299.9
+  oldPrice: number | null;     // indirim öncesi fiyat (TL)
+  discountRate: number | null; // tam sayı yüzde; oldPrice yoksa null
+  currency: "TRY";
+  image: string | null;        // ilk görselin URL'i
+  stock: number;
+  inStock: boolean;
+  rating: { average: number; count: number };
+  category: { id: string; name: string; slug: string };
+}
+
+interface ProductDetail extends ProductSummary {
+  description: string;
+  images: { url: string; alt: string }[];      // sıralı
+  breadcrumb: { name: string; slug: string }[]; // üst kategori (varsa), sonra ürünün kategorisi
+}
+```
+
+Para veritabanında kuruş cinsinden `INTEGER` tutulur (`price_kurus`); API'de TL'ye çevrilir (`src/lib/money.ts`).
 
 ## Google ile giriş
 
@@ -106,9 +158,11 @@ Bir kullanıcıyı admin yapmak için: `UPDATE users SET role = 'ADMIN' WHERE em
 ```
 src/
   config/env.ts          ortam değişkenleri (zod ile doğrulanır)
-  db/                    bağlantı havuzu, migration çalıştırıcı ve SQL dosyaları
-  lib/                   token, şifre, e-posta yardımcıları
+  db/                    bağlantı havuzu, migration çalıştırıcı, SQL dosyaları ve seed.ts
+  lib/                   token, şifre, e-posta, para (kuruş ↔ TL) yardımcıları
   middleware/            auth, doğrulama, rate limit, hata yakalama
   modules/auth/          auth endpoint'leri (routes → controller → service), google.ts
   modules/users/         kullanıcı sorguları, GET ve PATCH /users/me
+  modules/categories/    kategori ağacı (routes → controller → service → repository)
+  modules/products/      ürün listesi ve detayı (routes → controller → service → repository)
 ```
